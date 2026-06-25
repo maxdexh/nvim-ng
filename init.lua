@@ -1,45 +1,9 @@
 vim.pack.add({
-	"https://github.com/folke/snacks.nvim",
 	"https://github.com/folke/trouble.nvim",
 	"https://github.com/neovim/nvim-lspconfig",
-	"https://github.com/MunifTanjim/nui.nvim",
-	"https://github.com/rcarriga/nvim-notify",
 	{
 		src = "https://github.com/nvim-treesitter/nvim-treesitter",
 		version = "main",
-	},
-})
-
-require("snacks").setup({
-	bigfile = {
-		enabled = true,
-	},
-	indent = {
-		enabled = true,
-	},
-	input = {
-		enabled = true,
-	},
-	notifier = {
-		enabled = true,
-	},
-	quickfile = {
-		enabled = true,
-	},
-	scope = {
-		enabled = true,
-	},
-	scroll = {
-		enabled = true,
-	},
-	statuscolumn = {
-		enabled = false,
-	},
-	words = {
-		enabled = true,
-	},
-	pickers = {
-		ui_select = true,
 	},
 })
 
@@ -104,7 +68,7 @@ end
 set_ft_tab_width("rust", 4)
 set_ft_tab_width("nix", 2)
 
-require("config.pickers")
+require("config.snacks")
 require("config.buffers")
 require("config.completions")
 require("config.colourscheme")
