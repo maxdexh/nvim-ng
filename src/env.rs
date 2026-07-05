@@ -1,0 +1,210 @@
+mod plugin;
+
+use crate::{
+    prelude::*,
+    utils::{nvim_proxy, nvim_subproxy, opts_struct},
+};
+
+mod proxy {
+    use crate::prelude::*;
+    use crate::utils::tbl_proxy;
+
+    tbl_proxy!({
+        struct VimDiagnostic {
+            config: LuaCallable<LuaTable, ()>,
+        }
+    });
+    tbl_proxy!({
+        struct VimPack {
+            add: LuaCallable<LuaTable, ()>,
+        }
+    });
+    tbl_proxy!({
+        struct VimKeymap {
+            set: LuaCallable<(LuaTable, LuaString, LuaValue, LuaTable), ()>,
+        }
+    });
+    tbl_proxy!({
+        struct VimUV {
+            cwd: LuaCallable<(), LuaString>,
+        }
+    });
+    tbl_proxy!({
+        struct VimApi {
+            nvim_create_autocmd: LuaCallable<(LuaString, LuaTable), ()>,
+        }
+    });
+    tbl_proxy!({
+        struct VimVersion {
+            range: LuaCallable<LuaString, LuaValue>,
+        }
+    });
+    tbl_proxy!({
+        struct Vim {
+            opt: LuaTable,
+            opt_local: LuaTable,
+            g: LuaTable,
+            uv: VimUV,
+            pack: VimPack,
+            keymap: VimKeymap,
+            diagnostic: VimDiagnostic,
+            notify: LuaCallable<(LuaString, LuaInt), ()>,
+            cmd: LuaCallable<LuaString, ()>,
+            version: VimVersion,
+            api: VimApi,
+        }
+    });
+    tbl_proxy!({
+        struct Globals {
+            vim: Vim,
+            require: LuaCallable<LuaString, LuaValue>,
+        }
+    });
+}
+
+#[derive(Clone, Debug)]
+pub struct NvimEnv {
+    pub globals: proxy::Globals,
+    pub req_cache: crate::plugins::ReqCache,
+}
+#[derive(Clone, Debug)]
+pub struct Nvim {
+    pub lua: Lua,
+    pub shared: NvimEnv,
+}
+impl std::ops::Deref for Nvim {
+    type Target = NvimEnv;
+    fn deref(&self) -> &Self::Target {
+        &self.shared
+    }
+}
+impl Nvim {
+    #[cold]
+    pub fn notify_err(&self, err: &LuaError) {
+        self.lua
+            .traceback(Some(&format!("{err}\n\n")), 0)
+            .or_else(|tb_err| {
+                self.lua.create_string(format!(
+                    "{err}\n\nfailed to create trackback: {tb_err}\n{}",
+                    std::backtrace::Backtrace::force_capture()
+                ))
+            })
+            .and_then(|err| {
+                // 4 = error
+                self.globals.vim()?.notify()?.call((err, 4))
+            })
+            .expect("failed to notify");
+    }
+    pub fn create_func<A: FromLuaMulti, R: IntoLuaMulti>(
+        &self,
+        f: impl Fn(&Nvim, A) -> Result<R> + 'static,
+    ) -> Result<LuaFunc> {
+        let env = self.clone();
+        self.lua.create_function(move |_, args| f(&env, args))
+    }
+    pub fn create_autocmd_cb<A: FromLuaMulti>(
+        &self,
+        f: impl Fn(&Nvim, A) -> Result<()> + 'static,
+    ) -> Result<LuaFunc> {
+        self.create_func(move |env, args| {
+            f(env, args).ok_or_notify(env);
+            Ok(())
+        })
+    }
+    pub fn create_autocmd_cb_once<A: FromLuaMulti>(
+        &self,
+        f: impl FnOnce(&Nvim, A) -> Result<()> + 'static,
+    ) -> Result<LuaFunc> {
+        let func = std::sync::Mutex::new(Some(f));
+        self.create_autocmd_cb(move |env, args| {
+            func.try_lock()
+                .or_else(|err| match err {
+                    std::sync::TryLockError::Poisoned(pe) => Ok(pe.into_inner()),
+                    std::sync::TryLockError::WouldBlock => Err(()),
+                })
+                .ok()
+                .and_then(|mut it| it.take())
+                .ok_or_else(|| LuaError::runtime("callback can only be called once"))
+                .and_then(|f| f(env, args))
+        })
+    }
+    pub fn call_require<T: FromLua>(&self, s: &str) -> Result<T> {
+        self.globals.require()?.call_any_ret(s)
+    }
+}
+
+opts_struct!(
+    AutoCmdOptsAny,
+    AutoCmdOpts,
+    [(once, O, with_once), (pattern, P, with_pattern)]
+);
+
+nvim_proxy!(VimProxy, vim);
+impl VimProxy<'_> {
+    pub fn add_autocmd(
+        &self,
+        event: &str,
+        opts: impl AutoCmdOptsAny,
+        callback: impl IntoLua,
+    ) -> bool {
+        do_try(|| {
+            let opts = opts.into_table(self.lua())?;
+
+            opts.set("callback", callback)?;
+            self.env()
+                .globals
+                .vim()?
+                .api()?
+                .nvim_create_autocmd()?
+                .call((event, opts))
+        })
+        .ok_or_notify(self.env())
+        .is_some()
+    }
+    pub fn init_g(&self, init: impl FnOnce(LuaTableInit<false>) -> Result<()>) -> bool {
+        do_try(|| init(LuaTableInit::new(self.env().globals.vim()?.g()?)))
+            .ok_or_notify(self.env())
+            .is_some()
+    }
+    pub fn init_opt(&self, init: impl FnOnce(LuaTableInit<false>) -> Result<()>) -> bool {
+        do_try(|| init(LuaTableInit::new(self.env().globals.vim()?.opt()?)))
+            .ok_or_notify(self.env())
+            .is_some()
+    }
+    pub fn init_opt_local(&self, init: impl FnOnce(LuaTableInit<false>) -> Result<()>) -> bool {
+        do_try(|| init(LuaTableInit::new(self.env().globals.vim()?.opt_local()?)))
+            .ok_or_notify(self.env())
+            .is_some()
+    }
+    pub fn run_cmd(&self, cmd: impl LuaSub<LuaString>) -> bool {
+        do_try(|| self.env().globals.vim()?.cmd()?.call(cmd))
+            .ok_or_notify(self.env())
+            .is_some()
+    }
+}
+
+nvim_subproxy!(VimVersionProxy, version, VimProxy);
+impl VimVersionProxy<'_> {
+    pub fn range(&self, spec: &str) -> LuaDeferErr<LuaValue> {
+        LuaDeferErr(do_try(|| {
+            self.env().globals.vim()?.version()?.range()?.call(spec)
+        }))
+    }
+}
+
+nvim_subproxy!(VimPackProxy, pack, VimProxy);
+opts_struct!(PackOptsAny, PackOpts, [(version, V, with_version)]);
+impl VimPackProxy<'_> {
+    pub fn add(&self, url: &str, opts: impl PackOptsAny) -> bool {
+        let env = self.env();
+        opts.into_table(self.lua())
+            .and_then(|opts| {
+                opts.set("src", url)?;
+                env.globals.vim()?.pack()?.add()?.call([opts])
+            })
+            .ok_or_notify(env)
+            .is_some()
+    }
+}
+
+nvim_proxy!(NvimConf, config);
