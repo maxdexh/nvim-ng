@@ -9,7 +9,7 @@ impl NvimConf<'_> {
     }
     pub fn ft_set_indent(&self, ft: &str, indent: u8) {
         let env = self.env();
-        env.create_autocmd_cb(move |env, ()| {
+        let cb = env.create_autocmd_cb(move |env, ()| {
             env.vim().init_opt_local(|mut builder| {
                 tbl!(builder = builder, {
                     shiftwidth = 0;
@@ -18,20 +18,17 @@ impl NvimConf<'_> {
                 })
             });
             Ok(())
-        })
-        .map(|cb| {
-            env.vim()
-                .add_autocmd("FileType", AutoCmdOpts::empty().with_pattern(ft), cb);
-        })
-        .ok_or_notify(env);
+        });
+        env.vim()
+            .add_autocmd("FileType", AutoCmdOpts::empty().with_pattern(ft), cb);
     }
 
-    pub fn set_formatter(&self, ft: impl IntoLua, table: impl IntoLua) {
+    pub fn set_formatter(&self, ft: impl LuaSub<LuaString>, table: impl LuaSub<LuaTable>) {
         let env = self.env();
         mlua::Result::Ok(())
             .and_then(|()| {
-                let table = table.into_lua(self.lua())?;
-                let ft = ft.into_lua(self.lua())?;
+                let table = lua_conv_sub(self.lua(), table)?;
+                let ft = lua_conv_sub(self.lua(), ft)?;
 
                 env.vim().add_autocmd(
                     "FileType",
@@ -43,7 +40,7 @@ impl NvimConf<'_> {
                             .and_then(|conform| conform.formatters_by_ft()?.set(ft, table))
                             .ok_or_notify(env);
                         Ok(())
-                    })?,
+                    }),
                 );
 
                 Ok(())

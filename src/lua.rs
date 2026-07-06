@@ -49,6 +49,7 @@ lua_sub!(
         LuaValue, LuaFunc
     ]
 );
+lua_sub!(bool, [bool]);
 impl<T: LuaSub<U>, U> LuaSub<Option<U>> for Option<T> {}
 impl<T> LuaSub<T> for LuaBottom {}
 impl<T: IntoLua, const N: usize> LuaSub<LuaTable> for [T; N] {}
@@ -207,4 +208,43 @@ impl<K, V> IntoLua for LuaTableMap<K, V> {
     fn into_lua(self, lua: &Lua) -> mlua::Result<mlua::Value> {
         self.into_table().into_lua(lua)
     }
+}
+
+pub struct DeferIntoLua<F>(pub F);
+impl<T, F: FnOnce(&Lua) -> T> DeferIntoLua<F> {
+    pub fn eval(self, lua: &Lua) -> T {
+        self.0(lua)
+    }
+}
+pub fn defer_lua_val<T, F: FnOnce(&Lua) -> Result<T>>(f: F) -> DeferIntoLua<F> {
+    DeferIntoLua(f)
+}
+impl<T: IntoLua, F: FnOnce(&Lua) -> Result<T>> IntoLua for DeferIntoLua<F> {
+    fn into_lua(self, lua: &Lua) -> Result<LuaValue> {
+        self.0(lua)?.into_lua(lua)
+    }
+}
+impl<T: IntoLua, F: FnOnce(&Lua) -> Result<T>> LuaSub<T> for DeferIntoLua<F> {}
+
+pub struct LuaDeferErr<T>(pub Result<T>);
+impl<T> IntoLua for LuaDeferErr<T>
+where
+    T: IntoLua,
+{
+    fn into_lua(self, lua: &Lua) -> mlua::Result<mlua::Value> {
+        self.0?.into_lua(lua)
+    }
+}
+impl<U, T: LuaSub<U>> LuaSub<U> for LuaDeferErr<T> {}
+
+pub struct LuaIgnoreSub<T>(pub T);
+impl<T: IntoLua> IntoLua for LuaIgnoreSub<T> {
+    fn into_lua(self, lua: &Lua) -> mlua::Result<mlua::Value> {
+        self.0.into_lua(lua)
+    }
+}
+impl<U, T: IntoLua> LuaSub<U> for LuaIgnoreSub<T> {}
+
+pub fn lua_conv_sub<U: FromLua>(lua: &Lua, val: impl LuaSub<U>) -> Result<U> {
+    lua.convert(val)
 }

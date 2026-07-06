@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{lua::DeferIntoLua, prelude::*};
 
 macro_rules! tbl {
     (builder = $builder:ident, {$( $t:tt )*}) => { #[allow(clippy::redundant_closure_call)] {
@@ -49,22 +49,6 @@ macro_rules! tbl_seq {
 }
 pub(crate) use tbl_seq;
 
-pub struct DeferIntoLua<F>(pub F);
-impl<T, F: FnOnce(&Lua) -> T> DeferIntoLua<F> {
-    pub fn eval(self, lua: &Lua) -> T {
-        self.0(lua)
-    }
-}
-pub fn defer_lua_val<T, F: FnOnce(&Lua) -> Result<T>>(f: F) -> DeferIntoLua<F> {
-    DeferIntoLua(f)
-}
-impl<T: IntoLua, F: FnOnce(&Lua) -> Result<T>> IntoLua for DeferIntoLua<F> {
-    fn into_lua(self, lua: &Lua) -> Result<LuaValue> {
-        self.0(lua)?.into_lua(lua)
-    }
-}
-impl<T: IntoLua, F: FnOnce(&Lua) -> Result<T>> LuaSub<T> for DeferIntoLua<F> {}
-
 pub struct LuaTableInit<const RAW: bool> {
     pub table: LuaTable,
 }
@@ -95,22 +79,12 @@ impl<const RAW: bool> LuaTableInit<RAW> {
         }
     }
 }
+
 pub fn defer_lua_table(
     init: impl FnOnce(&mut LuaTableInit<true>) -> Result<()>,
 ) -> DeferIntoLua<impl FnOnce(&Lua) -> Result<LuaTable>> {
     defer_lua_val(|lua| LuaTableInit::new(lua.create_table()?).init_finish(init))
 }
-
-pub struct LuaDeferErr<T>(pub Result<T>);
-impl<T> IntoLua for LuaDeferErr<T>
-where
-    T: IntoLua,
-{
-    fn into_lua(self, lua: &Lua) -> mlua::Result<mlua::Value> {
-        self.0?.into_lua(lua)
-    }
-}
-impl<U, T: LuaSub<U>> LuaSub<U> for LuaDeferErr<T> {}
 
 pub trait ResultExt {
     type Ok;
@@ -140,7 +114,7 @@ impl<T, E> ResultExt for std::result::Result<T, E> {
 }
 
 macro_rules! opts_struct {
-    ($trait_name:ident, $(#[$meta:meta])* $gname:ident, [$(($field:ident, $gp:ident, $with:ident)),* $(,)?]) => {
+    ($trait_name:ident, $(#[$meta:meta])* $gname:ident, [$(($field:ident, $gp:ident, $fty:ty, $with:ident)),* $(,)?]) => {
         pub trait $trait_name: mlua::IntoLua {
             fn into_table(self, lua: &mlua::Lua) -> mlua::Result<mlua::Table>;
         }
@@ -163,14 +137,14 @@ macro_rules! opts_struct {
             }
         }
         impl<$($gp),*> $gname<$($gp),*> {
-            crate::utils::opts_struct! { @impl_generic [$($gp $field $with)*] $gname [] }
+            crate::utils::opts_struct! { @impl_generic [$($gp $field ($fty) $with)*] $gname [] }
         }
-        impl<$($gp: mlua::IntoLua),*> mlua::IntoLua for $gname<$($gp),*> {
+        impl<$($gp: crate::lua::LuaSub<Option<$fty>>),*> mlua::IntoLua for $gname<$($gp),*> {
             fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
                 self.into_table(lua).map(mlua::Value::Table)
             }
         }
-        impl<$($gp: mlua::IntoLua),*> $trait_name for $gname<$($gp),*> {
+        impl<$($gp: crate::lua::LuaSub<Option<$fty>>),*> $trait_name for $gname<$($gp),*> {
             fn into_table(self, lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
                 let Self { $($field),* } = self;
                 let tbl = lua.create_table_with_capacity(0, 0usize $(+ {let $field=1; $field})*)?;
@@ -182,19 +156,19 @@ macro_rules! opts_struct {
     ( @impl_generic [] $($rest:tt)* ) => {};
     (
         @impl_generic
-        [$gp:ident $field:ident $with:ident $($rgp:ident $rfield:ident $rwith:ident)*]
+        [$gp:ident $field:ident ($fty:ty) $with:ident $($rgp:ident $rfield:ident $rfty:tt $rwith:ident)*]
         $struct:ident
         [$($lgp:ident $lfield:ident)*]
     ) => {
-        pub fn $with<_Param: mlua::IntoLua>(self, $field: _Param) -> $struct<$($lgp,)* _Param, $($rgp,)*> {
+        pub fn $with<_Param: crate::lua::LuaSub<$fty>>(self, $field: _Param) -> $struct<$($lgp,)* Option<_Param>, $($rgp,)*> {
             let Self { $($lfield,)* $field: _, $($rfield,)* } = self;
             $struct {
                 $($lfield,)*
-                $field,
+                $field: Some($field),
                 $($rfield,)*
             }
         }
-        crate::utils::opts_struct! { @impl_generic [$($rgp $rfield $rwith)*] $struct [$($lgp $lfield)* $gp $field] }
+        crate::utils::opts_struct! { @impl_generic [$($rgp $rfield $rfty $rwith)*] $struct [$($lgp $lfield)* $gp $field] }
     }
 }
 pub(crate) use opts_struct;

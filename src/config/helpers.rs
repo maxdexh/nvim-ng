@@ -37,7 +37,7 @@ impl NvimKeymap<'_> {
         self.set_base(
             modes,
             sequence,
-            LuaDeferErr(self.env().create_func(move |env, ()| callback(env))),
+            LuaIgnoreSub(self.env().create_func(move |env, ()| callback(env))),
             tbl!({
                 desc = desc;
             }),

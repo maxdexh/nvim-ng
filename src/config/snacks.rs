@@ -36,7 +36,7 @@ impl NvimConf<'_> {
                         desc = "Find File";
                         action = env.create_func(|env, ()| {
                             env.req_snacks()?.dashboard()?.pick()?.call("files")
-                        })?;
+                        });
                     }),
                     tbl!({
                         icon = " ";
@@ -50,7 +50,7 @@ impl NvimConf<'_> {
                         desc = "Find Text";
                         action = env.create_func(|env, ()| {
                             env.req_snacks()?.dashboard()?.pick()?.call("live_grep")
-                        })?;
+                        });
                     }),
                     tbl!({
                         icon = " ";
@@ -60,7 +60,7 @@ impl NvimConf<'_> {
                             env.req_persistence()?.load()?.call(tbl!({
                                 last = true;
                             }))
-                        })?;
+                        });
                     }),
                     tbl!({
                         icon = " ";

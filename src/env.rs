@@ -63,20 +63,10 @@ mod proxy {
 }
 
 #[derive(Clone, Debug)]
-pub struct NvimEnv {
-    pub globals: proxy::Globals,
-    pub req_cache: crate::plugins::ReqCache,
-}
-#[derive(Clone, Debug)]
 pub struct Nvim {
     pub lua: Lua,
-    pub shared: NvimEnv,
-}
-impl std::ops::Deref for Nvim {
-    type Target = NvimEnv;
-    fn deref(&self) -> &Self::Target {
-        &self.shared
-    }
+    pub globals: proxy::Globals,
+    pub req_cache: crate::plugins::ReqCache,
 }
 impl Nvim {
     #[cold]
@@ -98,14 +88,16 @@ impl Nvim {
     pub fn create_func<A: FromLuaMulti, R: IntoLuaMulti>(
         &self,
         f: impl Fn(&Nvim, A) -> Result<R> + 'static,
-    ) -> Result<LuaFunc> {
+    ) -> impl LuaSub<LuaCallable<A, R>> {
         let env = self.clone();
-        self.lua.create_function(move |_, args| f(&env, args))
+        LuaIgnoreSub(LuaDeferErr(
+            self.lua.create_function(move |_, args| f(&env, args)),
+        ))
     }
     pub fn create_autocmd_cb<A: FromLuaMulti>(
         &self,
         f: impl Fn(&Nvim, A) -> Result<()> + 'static,
-    ) -> Result<LuaFunc> {
+    ) -> impl LuaSub<LuaCallable<A, ()>> {
         self.create_func(move |env, args| {
             f(env, args).ok_or_notify(env);
             Ok(())
@@ -114,7 +106,7 @@ impl Nvim {
     pub fn create_autocmd_cb_once<A: FromLuaMulti>(
         &self,
         f: impl FnOnce(&Nvim, A) -> Result<()> + 'static,
-    ) -> Result<LuaFunc> {
+    ) -> impl LuaSub<LuaCallable<A, ()>> {
         let func = std::sync::Mutex::new(Some(f));
         self.create_autocmd_cb(move |env, args| {
             func.try_lock()
@@ -136,7 +128,10 @@ impl Nvim {
 opts_struct!(
     AutoCmdOptsAny,
     AutoCmdOpts,
-    [(once, O, with_once), (pattern, P, with_pattern)]
+    [
+        (once, O, bool, with_once),
+        (pattern, P, LuaString, with_pattern)
+    ]
 );
 
 nvim_proxy!(VimProxy, vim);
@@ -145,7 +140,7 @@ impl VimProxy<'_> {
         &self,
         event: &str,
         opts: impl AutoCmdOptsAny,
-        callback: impl IntoLua,
+        callback: impl LuaSub<LuaCallable<(), ()>>,
     ) -> bool {
         do_try(|| {
             let opts = opts.into_table(self.lua())?;
@@ -193,7 +188,11 @@ impl VimVersionProxy<'_> {
 }
 
 nvim_subproxy!(VimPackProxy, pack, VimProxy);
-opts_struct!(PackOptsAny, PackOpts, [(version, V, with_version)]);
+opts_struct!(
+    PackOptsAny,
+    PackOpts,
+    [(version, V, LuaValue, with_version)]
+);
 impl VimPackProxy<'_> {
     pub fn add(&self, url: &str, opts: impl PackOptsAny) -> bool {
         let env = self.env();
