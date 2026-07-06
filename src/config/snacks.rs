@@ -14,7 +14,7 @@ impl NvimConf<'_> {
             .and_then(|opts| snacks.setup()?.call(opts))
             .ok_or_notify(env);
     }
-    fn snacks_opts(&self) -> Result<LuaTable> {
+    fn snacks_opts(&self) -> Result<LuaTopTable> {
         let env = self.env();
         tbl!(eval(self.lua()), {
             bigfile.enabled = true;

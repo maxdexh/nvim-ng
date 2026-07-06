@@ -23,7 +23,7 @@ impl NvimConf<'_> {
             .add_autocmd("FileType", AutoCmdOpts::empty().with_pattern(ft), cb);
     }
 
-    pub fn set_formatter(&self, ft: impl LuaSub<LuaString>, table: impl LuaSub<LuaTable>) {
+    pub fn set_formatter(&self, ft: impl LuaSub<LuaString>, table: impl LuaSub<LuaTopTable>) {
         let env = self.env();
         mlua::Result::Ok(())
             .and_then(|()| {

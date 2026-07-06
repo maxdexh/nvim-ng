@@ -6,4 +6,5 @@ mod langs;
 mod lua;
 mod plugins;
 mod prelude;
+mod typing;
 mod utils;

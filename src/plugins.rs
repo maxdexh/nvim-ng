@@ -9,7 +9,7 @@ impl<T> Default for CachedReq<T> {
         Self(Default::default())
     }
 }
-impl<T: FromLua> CachedReq<T> {
+impl<T: mlua::FromLua> CachedReq<T> {
     pub fn require(&self, name: &str, env: &Nvim) -> Result<&T> {
         if let Some(it) = self.0.get() {
             return Ok(it);
@@ -44,7 +44,7 @@ impl<T> Default for CachedSetup<T> {
         Self(Default::default())
     }
 }
-impl<T: FromLua> CachedSetup<T> {
+impl<T: mlua::FromLua> CachedSetup<T> {
     pub fn register(
         &self,
         callback: impl FnOnce(&Nvim, &T) -> Result<()> + 'static + Send,
@@ -108,16 +108,16 @@ impl Nvim {
 
 tbl_proxy!({
     struct GenericPlugin {
-        setup: LuaCallable<LuaTable, ()>,
+        setup: LuaCallable<LuaTopTable, ()>,
     }
 });
 
 tbl_proxy!({
     struct Snacks {
-        setup: LuaCallable<LuaTable, ()>,
+        setup: LuaCallable<LuaTopTable, ()>,
         git: SnacksGit,
         dashboard: SnacksDash,
-        picker: LuaTableMap<LuaString, LuaCallable<Option<LuaTable>, ()>>,
+        picker: LuaTableMap<LuaString, LuaCallable<Option<LuaTopTable>, ()>>,
     }
 });
 tbl_proxy!({
@@ -133,21 +133,21 @@ tbl_proxy!({
 
 tbl_proxy!({
     struct Persistence {
-        setup: LuaCallable<LuaTable, ()>,
-        load: LuaCallable<LuaTable, ()>,
+        setup: LuaCallable<LuaTopTable, ()>,
+        load: LuaCallable<LuaTopTable, ()>,
     }
 });
 
 tbl_proxy!({
     struct Conform {
-        setup: LuaCallable<LuaTable, ()>,
-        formatters_by_ft: LuaTable,
+        setup: LuaCallable<LuaTopTable, ()>,
+        formatters_by_ft: LuaTopTable,
     }
 });
 
 tbl_proxy!({
     struct Treesitter {
-        setup: LuaCallable<LuaTable, ()>,
-        install: LuaCallable<LuaTable, ()>,
+        setup: LuaCallable<LuaTopTable, ()>,
+        install: LuaCallable<LuaTopTable, ()>,
     }
 });

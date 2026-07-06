@@ -11,17 +11,17 @@ mod proxy {
 
     tbl_proxy!({
         struct VimDiagnostic {
-            config: LuaCallable<LuaTable, ()>,
+            config: LuaCallable<LuaTopTable, ()>,
         }
     });
     tbl_proxy!({
         struct VimPack {
-            add: LuaCallable<LuaTable, ()>,
+            add: LuaCallable<LuaTopTable, ()>,
         }
     });
     tbl_proxy!({
         struct VimKeymap {
-            set: LuaCallable<(LuaTable, LuaString, LuaValue, LuaTable), ()>,
+            set: LuaCallable<(LuaTopTable, LuaString, LuaTop, LuaTopTable), ()>,
         }
     });
     tbl_proxy!({
@@ -31,19 +31,19 @@ mod proxy {
     });
     tbl_proxy!({
         struct VimApi {
-            nvim_create_autocmd: LuaCallable<(LuaString, LuaTable), ()>,
+            nvim_create_autocmd: LuaCallable<(LuaString, LuaTopTable), ()>,
         }
     });
     tbl_proxy!({
         struct VimVersion {
-            range: LuaCallable<LuaString, LuaValue>,
+            range: LuaCallable<LuaString, LuaTop>,
         }
     });
     tbl_proxy!({
         struct Vim {
-            opt: LuaTable,
-            opt_local: LuaTable,
-            g: LuaTable,
+            opt: LuaTopTable,
+            opt_local: LuaTopTable,
+            g: LuaTopTable,
             uv: VimUV,
             pack: VimPack,
             keymap: VimKeymap,
@@ -57,7 +57,7 @@ mod proxy {
     tbl_proxy!({
         struct Globals {
             vim: Vim,
-            require: LuaCallable<LuaString, LuaValue>,
+            require: LuaCallable<LuaString, LuaTop>,
         }
     });
 }
@@ -85,28 +85,30 @@ impl Nvim {
             })
             .expect("failed to notify");
     }
-    pub fn create_func<A: FromLuaMulti, R: IntoLuaMulti>(
+    pub fn create_func<A: FromLuaMultiTyped, R: IntoLuaMultiTyped>(
         &self,
         f: impl Fn(&Nvim, A) -> Result<R> + 'static,
-    ) -> impl LuaSub<LuaCallable<A, R>> {
+    ) -> LuaDeferErr<LuaCallable<A, R>> {
         let env = self.clone();
-        LuaIgnoreSub(LuaDeferErr(
-            self.lua.create_function(move |_, args| f(&env, args)),
-        ))
+        LuaDeferErr(
+            self.lua
+                .create_function(move |_, args| f(&env, args))
+                .map(LuaCallable::from_any_func),
+        )
     }
-    pub fn create_autocmd_cb<A: FromLuaMulti>(
+    pub fn create_autocmd_cb<A: FromLuaMultiTyped>(
         &self,
         f: impl Fn(&Nvim, A) -> Result<()> + 'static,
-    ) -> impl LuaSub<LuaCallable<A, ()>> {
+    ) -> LuaDeferErr<LuaCallable<A, ()>> {
         self.create_func(move |env, args| {
             f(env, args).ok_or_notify(env);
             Ok(())
         })
     }
-    pub fn create_autocmd_cb_once<A: FromLuaMulti>(
+    pub fn create_autocmd_cb_once<A: FromLuaMultiTyped>(
         &self,
         f: impl FnOnce(&Nvim, A) -> Result<()> + 'static,
-    ) -> impl LuaSub<LuaCallable<A, ()>> {
+    ) -> LuaDeferErr<LuaCallable<A, ()>> {
         let func = std::sync::Mutex::new(Some(f));
         self.create_autocmd_cb(move |env, args| {
             func.try_lock()
@@ -120,7 +122,7 @@ impl Nvim {
                 .and_then(|f| f(env, args))
         })
     }
-    pub fn call_require<T: FromLua>(&self, s: &str) -> Result<T> {
+    pub fn call_require<T: mlua::FromLua>(&self, s: &str) -> Result<T> {
         self.globals.require()?.call_any_ret(s)
     }
 }
@@ -180,7 +182,7 @@ impl VimProxy<'_> {
 
 nvim_subproxy!(VimVersionProxy, version, VimProxy);
 impl VimVersionProxy<'_> {
-    pub fn range(&self, spec: &str) -> LuaDeferErr<LuaValue> {
+    pub fn range(&self, spec: &str) -> LuaDeferErr<LuaTop> {
         LuaDeferErr(do_try(|| {
             self.env().globals.vim()?.version()?.range()?.call(spec)
         }))
@@ -188,11 +190,7 @@ impl VimVersionProxy<'_> {
 }
 
 nvim_subproxy!(VimPackProxy, pack, VimProxy);
-opts_struct!(
-    PackOptsAny,
-    PackOpts,
-    [(version, V, LuaValue, with_version)]
-);
+opts_struct!(PackOptsAny, PackOpts, [(version, V, LuaTop, with_version)]);
 impl VimPackProxy<'_> {
     pub fn add(&self, url: &str, opts: impl PackOptsAny) -> bool {
         let env = self.env();

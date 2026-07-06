@@ -23,7 +23,7 @@ impl NvimConf<'_> {
         });
     }
 
-    fn oil_opts(&self) -> impl LuaSub<LuaTable> {
+    fn oil_opts(&self) -> impl LuaSub<LuaTopTable> {
         tbl!({
             default_file_explorer = true;
             buf_options.buflisted = false;

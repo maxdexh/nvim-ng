@@ -1,16 +1,18 @@
 use std::marker::PhantomData;
 
+use crate::typing::{FromLuaMultiTyped, FromLuaTyped, LuaSub, LuaSubMulti};
 use mlua::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua, ObjectLike};
 
 pub type LuaError = mlua::Error;
 pub type Result<T, E = LuaError> = std::result::Result<T, E>;
 
-pub type LuaFunc = mlua::Function;
+pub type LuaTop = mlua::Value;
 pub type LuaString = mlua::String;
-pub type LuaTable = mlua::Table;
-pub type LuaValue = mlua::Value;
+pub type LuaTopTable = mlua::Table;
+pub type LuaTopFunc = mlua::Function;
 pub type LuaNum = mlua::Number;
 pub type LuaInt = mlua::Integer;
+pub type LuaEither<L, R> = mlua::Either<L, R>;
 
 pub type LuaNil = Option<LuaBottom>;
 #[expect(non_upper_case_globals)]
@@ -24,43 +26,23 @@ impl IntoLua for LuaBottom {
         match self {}
     }
 }
-
-pub trait LuaSub<Sub>: IntoLua {}
-
-macro_rules! lua_sub {
-    ($dst:ty, [$($t:ty),* $(,)?]) => {
-        $(
-            impl LuaSub<$dst> for $t {}
-        )*
-    };
+impl FromLua for LuaBottom {
+    fn from_lua(value: mlua::Value, _: &Lua) -> mlua::Result<Self> {
+        Err(LuaError::FromLuaConversionError {
+            from: value.type_name(),
+            to: "Bottom".into(),
+            message: Some("Conversion to bottom type always fails".into()),
+        })
+    }
 }
-
-lua_sub!(LuaTable, [LuaTable]);
-lua_sub!(LuaString, [LuaString, &str, String]);
-lua_sub!(LuaInt, [i8, u8, i16, u16, i32, u32, i64, u64, isize, usize]);
-lua_sub!(
-    LuaNum,
-    [f64, f32, i8, u8, i16, u16, i32, u32, i64, u64, isize, usize]
-);
-lua_sub!(
-    LuaValue,
-    [
-        LuaTable, LuaString, &str, String, i8, u8, i16, u16, i32, u32, i64, u64, isize, usize,
-        LuaValue, LuaFunc
-    ]
-);
-lua_sub!(bool, [bool]);
-impl<T: LuaSub<U>, U> LuaSub<Option<U>> for Option<T> {}
-impl<T> LuaSub<T> for LuaBottom {}
-impl<T: IntoLua, const N: usize> LuaSub<LuaTable> for [T; N] {}
 
 #[derive(Clone, Debug)]
-pub enum LuaAnyCallable {
-    Func(LuaFunc),
+pub enum LuaMaybeCallable {
+    Func(LuaTopFunc),
     Data(mlua::AnyUserData),
-    Table(LuaTable),
+    Table(LuaTopTable),
 }
-impl LuaAnyCallable {
+impl LuaMaybeCallable {
     pub fn call_any<R: FromLuaMulti>(&self, args: impl IntoLuaMulti) -> Result<R> {
         match self {
             Self::Func(func) => func.call(args),
@@ -69,7 +51,7 @@ impl LuaAnyCallable {
         }
     }
 }
-impl IntoLua for LuaAnyCallable {
+impl IntoLua for LuaMaybeCallable {
     fn into_lua(self, _: &Lua) -> mlua::Result<mlua::Value> {
         Ok(match self {
             Self::Func(func) => mlua::Value::Function(func),
@@ -78,7 +60,7 @@ impl IntoLua for LuaAnyCallable {
         })
     }
 }
-impl FromLua for LuaAnyCallable {
+impl FromLua for LuaMaybeCallable {
     fn from_lua(value: mlua::Value, _: &Lua) -> mlua::Result<Self> {
         Ok(match value {
             mlua::Value::Table(table) => Self::Table(table),
@@ -95,41 +77,7 @@ impl FromLua for LuaAnyCallable {
     }
 }
 
-pub trait LuaSubMulti<Sub>: IntoLuaMulti {}
-impl<U, T: LuaSub<U>> LuaSubMulti<U> for T {}
-impl LuaSubMulti<()> for () {}
-macro_rules! impl_tuple {
-    () => {};
-    (($TL:ident, $UL:ident) $(,($T:ident, $U:ident))* $(,)?) => {
-        impl_tuple!($(($T, $U)),*);
-        impl<$($U, $T: LuaSub<$U>,)* $UL, $TL: LuaSubMulti<$UL>>
-            LuaSubMulti<($($U,)* $UL,)>
-        for ($($T,)* $TL,) {}
-        impl<$($T: mlua::IntoLua,)* $TL: mlua::IntoLuaMulti>
-            LuaSubMulti<mlua::MultiValue>
-        for ($($T,)* $TL,) {}
-    };
-}
-impl_tuple!(
-    (TP, UP),
-    (TO, UO),
-    (TN, UN),
-    (TM, UM),
-    (TL, UL),
-    (TK, UK),
-    (TJ, UJ),
-    (TI, UI),
-    (TH, UH),
-    (TG, UG),
-    (TF, UF),
-    (TE, UE),
-    (TD, UD),
-    (TC, UC),
-    (TB, UB),
-    (TA, UA),
-);
-
-pub struct LuaCallable<A, R>(LuaAnyCallable, PhantomData<fn(A) -> R>);
+pub struct LuaCallable<A, R>(LuaMaybeCallable, PhantomData<fn(A) -> R>);
 impl<A, R> std::fmt::Debug for LuaCallable<A, R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.0)
@@ -151,52 +99,53 @@ impl<A, R> IntoLua for LuaCallable<A, R> {
     }
 }
 impl<A, R> LuaCallable<A, R> {
-    pub fn call_any_ret<U: FromLuaMulti>(self, args: impl LuaSubMulti<A>) -> Result<U> {
+    pub fn call_any_ret<U: FromLuaMulti>(self, args: impl LuaSubMulti<A>) -> Result<U>
+    where
+        A: FromLuaMultiTyped,
+    {
         self.as_any().call_any(args)
     }
 
     pub fn call(self, args: impl LuaSubMulti<A>) -> Result<R>
     where
+        A: FromLuaMultiTyped,
         R: FromLuaMulti,
     {
         self.as_any().call_any(args)
     }
 
-    pub fn from_any(func: LuaAnyCallable) -> Self {
+    pub fn from_any(func: LuaMaybeCallable) -> Self {
         Self(func, PhantomData)
     }
-    pub fn into_any(self) -> LuaAnyCallable {
+    pub fn from_any_func(func: LuaTopFunc) -> Self {
+        Self::from_any(LuaMaybeCallable::Func(func))
+    }
+    pub fn into_any(self) -> LuaMaybeCallable {
         self.0
     }
-    pub fn as_any(&self) -> &LuaAnyCallable {
+    pub fn as_any(&self) -> &LuaMaybeCallable {
         &self.0
     }
 }
 
-pub struct LuaTableMap<K, V>(
-    LuaTable,
-    #[allow(clippy::complexity)] PhantomData<fn((K, V)) -> (K, V)>,
-);
+pub struct LuaTableMap<K, V>(LuaTopTable, PhantomData<fn() -> (K, V)>);
 impl<K, V> LuaTableMap<K, V> {
-    pub fn from_table(func: LuaTable) -> Self {
+    pub fn from_table(func: LuaTopTable) -> Self {
         Self(func, PhantomData)
     }
-    pub fn into_table(self) -> LuaTable {
+    pub fn into_table(self) -> LuaTopTable {
         self.0
     }
-    pub fn as_table(&self) -> &LuaTable {
+    pub fn as_table(&self) -> &LuaTopTable {
         &self.0
     }
 
     pub fn get(&self, k: impl LuaSub<K>) -> Result<V>
     where
+        K: FromLuaTyped,
         V: FromLua,
     {
         self.as_table().get(k)
-    }
-    #[expect(unused)]
-    pub fn set(&self, k: impl LuaSub<K>, v: impl LuaSub<V>) -> Result<()> {
-        self.as_table().set(k, v)
     }
 }
 impl<K, V> FromLua for LuaTableMap<K, V> {
@@ -210,21 +159,43 @@ impl<K, V> IntoLua for LuaTableMap<K, V> {
     }
 }
 
-pub struct DeferIntoLua<F>(pub F);
-impl<T, F: FnOnce(&Lua) -> T> DeferIntoLua<F> {
+pub struct LuaTableSeq<T>(
+    LuaTopTable,
+    #[allow(clippy::complexity)] PhantomData<fn() -> T>,
+);
+impl<T> LuaTableSeq<T> {
+    pub fn from_table(func: LuaTopTable) -> Self {
+        Self(func, PhantomData)
+    }
+    pub fn into_table(self) -> LuaTopTable {
+        self.0
+    }
+}
+impl<T> FromLua for LuaTableSeq<T> {
+    fn from_lua(value: mlua::Value, lua: &Lua) -> mlua::Result<Self> {
+        Ok(Self::from_table(lua.unpack(value)?))
+    }
+}
+impl<T> IntoLua for LuaTableSeq<T> {
+    fn into_lua(self, lua: &Lua) -> mlua::Result<mlua::Value> {
+        self.into_table().into_lua(lua)
+    }
+}
+
+pub struct LuaDefer<F>(pub F);
+impl<T, F: FnOnce(&Lua) -> T> LuaDefer<F> {
     pub fn eval(self, lua: &Lua) -> T {
         self.0(lua)
     }
 }
-pub fn defer_lua_val<T, F: FnOnce(&Lua) -> Result<T>>(f: F) -> DeferIntoLua<F> {
-    DeferIntoLua(f)
+pub fn defer_lua_val<T, F: FnOnce(&Lua) -> Result<T>>(f: F) -> LuaDefer<F> {
+    LuaDefer(f)
 }
-impl<T: IntoLua, F: FnOnce(&Lua) -> Result<T>> IntoLua for DeferIntoLua<F> {
-    fn into_lua(self, lua: &Lua) -> Result<LuaValue> {
+impl<T: IntoLua, F: FnOnce(&Lua) -> Result<T>> IntoLua for LuaDefer<F> {
+    fn into_lua(self, lua: &Lua) -> Result<LuaTop> {
         self.0(lua)?.into_lua(lua)
     }
 }
-impl<T: IntoLua, F: FnOnce(&Lua) -> Result<T>> LuaSub<T> for DeferIntoLua<F> {}
 
 pub struct LuaDeferErr<T>(pub Result<T>);
 impl<T> IntoLua for LuaDeferErr<T>
@@ -235,16 +206,14 @@ where
         self.0?.into_lua(lua)
     }
 }
-impl<U, T: LuaSub<U>> LuaSub<U> for LuaDeferErr<T> {}
 
-pub struct LuaIgnoreSub<T>(pub T);
-impl<T: IntoLua> IntoLua for LuaIgnoreSub<T> {
+pub struct LuaCastIntoAny<T>(pub T);
+impl<T: IntoLua> IntoLua for LuaCastIntoAny<T> {
     fn into_lua(self, lua: &Lua) -> mlua::Result<mlua::Value> {
         self.0.into_lua(lua)
     }
 }
-impl<U, T: IntoLua> LuaSub<U> for LuaIgnoreSub<T> {}
 
-pub fn lua_conv_sub<U: FromLua>(lua: &Lua, val: impl LuaSub<U>) -> Result<U> {
+pub fn lua_conv_sub<U: FromLuaTyped>(lua: &Lua, val: impl LuaSub<U>) -> Result<U> {
     lua.convert(val)
 }

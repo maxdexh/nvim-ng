@@ -1,4 +1,4 @@
-use crate::{lua::DeferIntoLua, prelude::*};
+use crate::{lua::LuaDefer, prelude::*};
 
 macro_rules! tbl {
     (builder = $builder:ident, {$( $t:tt )*}) => { #[allow(clippy::redundant_closure_call)] {
@@ -50,28 +50,31 @@ macro_rules! tbl_seq {
 pub(crate) use tbl_seq;
 
 pub struct LuaTableInit<const RAW: bool> {
-    pub table: LuaTable,
+    pub table: LuaTopTable,
 }
 impl<const RAW: bool> LuaTableInit<RAW> {
-    pub fn new(table: LuaTable) -> Self {
+    pub fn new(table: LuaTopTable) -> Self {
         Self { table }
     }
     pub fn init(&mut self, init: impl FnOnce(&mut Self) -> Result<()>) -> Result<&mut Self> {
         init(self)?;
         Ok(self)
     }
-    pub fn init_finish(mut self, init: impl FnOnce(&mut Self) -> Result<()>) -> Result<LuaTable> {
+    pub fn init_finish(
+        mut self,
+        init: impl FnOnce(&mut Self) -> Result<()>,
+    ) -> Result<LuaTopTable> {
         self.init(init)?;
         Ok(self.table)
     }
-    pub fn push(&mut self, val: impl IntoLua) -> Result<()> {
+    pub fn push(&mut self, val: impl mlua::IntoLua) -> Result<()> {
         if RAW {
             self.table.raw_push(val)
         } else {
             self.table.push(val)
         }
     }
-    pub fn set(&mut self, key: impl IntoLua, val: impl IntoLua) -> Result<()> {
+    pub fn set(&mut self, key: impl mlua::IntoLua, val: impl mlua::IntoLua) -> Result<()> {
         if RAW {
             self.table.raw_set(key, val)
         } else {
@@ -82,7 +85,7 @@ impl<const RAW: bool> LuaTableInit<RAW> {
 
 pub fn defer_lua_table(
     init: impl FnOnce(&mut LuaTableInit<true>) -> Result<()>,
-) -> DeferIntoLua<impl FnOnce(&Lua) -> Result<LuaTable>> {
+) -> LuaDefer<impl FnOnce(&Lua) -> Result<LuaTopTable>> {
     defer_lua_val(|lua| LuaTableInit::new(lua.create_table()?).init_finish(init))
 }
 
@@ -139,12 +142,12 @@ macro_rules! opts_struct {
         impl<$($gp),*> $gname<$($gp),*> {
             crate::utils::opts_struct! { @impl_generic [$($gp $field ($fty) $with)*] $gname [] }
         }
-        impl<$($gp: crate::lua::LuaSub<Option<$fty>>),*> mlua::IntoLua for $gname<$($gp),*> {
+        impl<$($gp: crate::typing::LuaSub<Option<$fty>>),*> mlua::IntoLua for $gname<$($gp),*> {
             fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
                 self.into_table(lua).map(mlua::Value::Table)
             }
         }
-        impl<$($gp: crate::lua::LuaSub<Option<$fty>>),*> $trait_name for $gname<$($gp),*> {
+        impl<$($gp: crate::typing::LuaSub<Option<$fty>>),*> $trait_name for $gname<$($gp),*> {
             fn into_table(self, lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
                 let Self { $($field),* } = self;
                 let tbl = lua.create_table_with_capacity(0, 0usize $(+ {let $field=1; $field})*)?;
@@ -160,7 +163,7 @@ macro_rules! opts_struct {
         $struct:ident
         [$($lgp:ident $lfield:ident)*]
     ) => {
-        pub fn $with<_Param: crate::lua::LuaSub<$fty>>(self, $field: _Param) -> $struct<$($lgp,)* Option<_Param>, $($rgp,)*> {
+        pub fn $with<_Param: crate::typing::LuaSub<$fty>>(self, $field: _Param) -> $struct<$($lgp,)* Option<_Param>, $($rgp,)*> {
             let Self { $($lfield,)* $field: _, $($rfield,)* } = self;
             $struct {
                 $($lfield,)*
