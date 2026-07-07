@@ -4,8 +4,8 @@ impl NvimConf<'_> {
     pub fn load_options(&self) {
         let env = self.env();
 
-        env.vim().init_opt(|mut builder| {
-            tbl!(builder = builder, {
+        do_try(|| {
+            tbl!(out(env.globals.vim()?.opt()?), {
                 shiftwidth = 0;
                 tabstop = 2;
                 expandtab = true;
@@ -14,11 +14,9 @@ impl NvimConf<'_> {
                 undofile = true;
             })
         });
-
-        env.vim().init_g(|mut builder| {
-            tbl!(builder = builder, {
+        do_try(|| {
+            tbl!(out(env.globals.vim()?.g()?), {
                 snacks_animate = false;
-                // NOTE: Must be set before any leader binds
                 mapleader = " ";
             })
         });

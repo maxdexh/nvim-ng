@@ -10,13 +10,21 @@ impl NvimConf<'_> {
         let Some(snacks) = env.req_snacks().ok_or_notify(env) else {
             return;
         };
-        self.snacks_opts()
-            .and_then(|opts| snacks.setup()?.call(opts))
-            .ok_or_notify(env);
+        do_try(|| snacks.setup()?.call(self.snacks_opts())).ok_or_notify(env);
     }
-    fn snacks_opts(&self) -> Result<LuaTopTable> {
+
+    fn snacks_opts(&self) -> impl LuaSub<LuaTableMap<LuaString, LuaValue>> {
         let env = self.env();
-        tbl!(eval(self.lua()), {
+        let find_file =
+            env.create_func(|env, ()| env.req_snacks()?.dashboard()?.pick()?.call("files"));
+        let find_text =
+            env.create_func(|env, ()| env.req_snacks()?.dashboard()?.pick()?.call("live_grep"));
+        let load_session = env.create_func(|env, ()| {
+            env.req_persistence()?.load()?.call(tbl!({
+                last = true;
+            }))
+        });
+        tbl!({
             bigfile.enabled = true;
             indent.enabled = true;
             input.enabled = true;
@@ -34,9 +42,7 @@ impl NvimConf<'_> {
                         icon = " ";
                         key = "f";
                         desc = "Find File";
-                        action = env.create_func(|env, ()| {
-                            env.req_snacks()?.dashboard()?.pick()?.call("files")
-                        });
+                        action = find_file;
                     }),
                     tbl!({
                         icon = " ";
@@ -48,19 +54,13 @@ impl NvimConf<'_> {
                         icon = " ";
                         key = "g";
                         desc = "Find Text";
-                        action = env.create_func(|env, ()| {
-                            env.req_snacks()?.dashboard()?.pick()?.call("live_grep")
-                        });
+                        action = find_text;
                     }),
                     tbl!({
                         icon = " ";
                         key = "s";
                         desc = "Restore Session";
-                        action = env.create_func(|env, ()| {
-                            env.req_persistence()?.load()?.call(tbl!({
-                                last = true;
-                            }))
-                        });
+                        action = load_session;
                     }),
                     tbl!({
                         icon = " ";

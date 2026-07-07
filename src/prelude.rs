@@ -1,15 +1,12 @@
 pub use crate::env::{AutoCmdOpts, Nvim, NvimConf, PackOpts};
 
-pub(crate) use crate::utils::{LuaTableInit, ResultExt, tbl, tbl_seq};
+pub(crate) use crate::utils::{ResultExt, do_try, tbl, tbl_seq};
 
 pub use mlua::{Lua, ObjectLike, UserData};
 
 pub use crate::lua::{
-    LuaCallable, LuaCastIntoAny, LuaDeferErr, LuaError, LuaInt, LuaNil, LuaString, LuaTableMap,
-    LuaTop, LuaTopTable, Result, defer_lua_val, lua_conv_sub,
+    LuaBottom, LuaCallable, LuaCastIntoAny, LuaDeferErr, LuaEither, LuaError, LuaInt, LuaMutTable,
+    LuaNil, LuaString, LuaTableAny, LuaTableMap, LuaTableMapMut, LuaTableSeqMut, LuaValue, Result,
+    defer_lua_val, lua_conv_sub,
 };
-pub use crate::typing::{FromLuaMultiTyped, FromLuaTyped, IntoLuaMultiTyped, IntoLuaTyped, LuaSub};
-
-pub fn do_try<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
-    f()
-}
+pub use crate::typing::{FromLuaMultiTyped, IntoLuaMultiTyped, LuaSub};

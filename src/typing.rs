@@ -18,19 +18,16 @@ pub mod logic {
     }
     pub type And<L, R> = <L as Bool>::And<R>;
     pub type Or<L, R> = <L as Bool>::Or<R>;
-    pub type Not<X> = <X as Bool>::Not;
 }
 use logic::*;
 
 pub trait FromLuaTyped: mlua::FromLua {
-    // NOTE: Like From/Into, this should be a subset of the conversions supported by Is.
     type IsFrom<Src: IntoLuaTyped>: Bool;
-    type IsFromNil: Bool;
 }
 pub trait IntoLuaTyped: mlua::IntoLua {
     type IsInto<Dst: FromLuaTyped>: Bool;
 
-    type IsIntoOption<Dst: FromLuaTyped>: Bool;
+    type StripNil: IntoLuaTyped;
 
     type IsIntoTable: Bool;
     type IsIntoNum: Bool;
@@ -39,19 +36,20 @@ pub trait IntoLuaTyped: mlua::IntoLua {
     type IsIntoFunc: Bool;
     type IsIntoBool: Bool;
 
-    type IsIntoTableSeq<I: FromLuaTyped>: Bool;
-    type IsIntoTableMap<K: IntoLuaTyped + FromLuaTyped, V: FromLuaTyped>: Bool;
+    type IsIntoTableSeqConst<I: FromLuaTyped>: Bool;
+    type IsIntoTableSeqMut<I: IntoLuaTyped + FromLuaTyped>: Bool;
+    type IsIntoTableMapConst<K: FromLuaTyped, V: FromLuaTyped>: Bool;
+    type IsIntoTableMapMut<K: IntoLuaTyped + FromLuaTyped, V: IntoLuaTyped + FromLuaTyped>: Bool;
     type IsIntoCallWith<A: IntoLuaMultiTyped, R: FromLuaMultiTyped>: Bool;
 }
 pub type IsInto<Src, Dst> = <Src as IntoLuaTyped>::IsInto<Dst>;
-pub type IsNilable<T> = <crate::lua::LuaNil as IntoLuaTyped>::IsInto<T>;
 pub type IsEquiv<T, U> = And<IsInto<T, U>, IsInto<U, T>>;
 macro_rules! default_item {
     (IsInto) => {
         type IsInto<Dst: FromLuaTyped> = Dst::IsFrom<Self>;
     };
-    (IsIntoOption) => {
-        type IsIntoOption<Dst: FromLuaTyped> = Self::IsInto<Dst>;
+    (StripNil) => {
+        type StripNil = Self;
     };
     (IsIntoTable) => {
         type IsIntoTable = crate::typing::False;
@@ -71,13 +69,21 @@ macro_rules! default_item {
     (IsIntoBool) => {
         type IsIntoBool = crate::typing::False;
     };
-    (IsIntoTableSeq) => {
-        type IsIntoTableSeq<_I: crate::typing::FromLuaTyped> = crate::typing::False;
+    (IsIntoTableSeqConst) => {
+        type IsIntoTableSeqConst<_I: crate::typing::FromLuaTyped> = crate::typing::False;
     };
-    (IsIntoTableMap) => {
-        type IsIntoTableMap<
+    (IsIntoTableSeqMut) => {
+        type IsIntoTableSeqMut<_I: crate::typing::IntoLuaTyped + crate::typing::FromLuaTyped> =
+            crate::typing::False;
+    };
+    (IsIntoTableMapConst) => {
+        type IsIntoTableMapConst<_K: crate::typing::FromLuaTyped, _V: crate::typing::FromLuaTyped> =
+            crate::typing::False;
+    };
+    (IsIntoTableMapMut) => {
+        type IsIntoTableMapMut<
             _K: crate::typing::IntoLuaTyped + crate::typing::FromLuaTyped,
-            _V: crate::typing::FromLuaTyped,
+            _V: crate::typing::IntoLuaTyped + crate::typing::FromLuaTyped,
         > = crate::typing::False;
     };
     (IsIntoCallWith) => {
@@ -95,16 +101,18 @@ macro_rules! mk_defaults_except {
         macro_rules! $mac {
             () => {
                 $mac!(@sel IsInto);
-                $mac!(@sel IsIntoOption);
                 $mac!(@sel IsIntoTable);
                 $mac!(@sel IsIntoNum);
                 $mac!(@sel IsIntoInt);
                 $mac!(@sel IsIntoStr);
                 $mac!(@sel IsIntoFunc);
                 $mac!(@sel IsIntoBool);
-                $mac!(@sel IsIntoTableSeq);
-                $mac!(@sel IsIntoTableMap);
+                $mac!(@sel IsIntoTableMapConst);
+                $mac!(@sel IsIntoTableMapMut);
+                $mac!(@sel IsIntoTableSeqConst);
+                $mac!(@sel IsIntoTableSeqMut);
                 $mac!(@sel IsIntoCallWith);
+                $mac!(@sel StripNil);
             };
             $( (@sel $item) => {}; )*
             (@sel $other:ident) => {
@@ -117,59 +125,52 @@ macro_rules! mk_defaults_except {
 mod from_impls {
     use super::*;
 
-    impl FromLuaTyped for crate::lua::LuaTop {
+    impl FromLuaTyped for crate::lua::LuaValue {
         type IsFrom<Src: IntoLuaTyped> = True;
-        type IsFromNil = True;
     }
     impl FromLuaTyped for crate::lua::LuaString {
         type IsFrom<Src: IntoLuaTyped> = Src::IsIntoStr;
-        type IsFromNil = False;
     }
-    impl FromLuaTyped for crate::lua::LuaTopTable {
+    impl FromLuaTyped for crate::lua::LuaTableAny {
         type IsFrom<Src: IntoLuaTyped> = Src::IsIntoTable;
-        type IsFromNil = False;
     }
-    impl FromLuaTyped for crate::lua::LuaTopFunc {
+    impl FromLuaTyped for crate::lua::LuaFuncAny {
         type IsFrom<Src: IntoLuaTyped> = Src::IsIntoFunc;
-        type IsFromNil = False;
     }
     impl FromLuaTyped for bool {
         type IsFrom<Src: IntoLuaTyped> = Src::IsIntoBool;
-        type IsFromNil = False;
     }
     impl FromLuaTyped for crate::lua::LuaNum {
         type IsFrom<Src: IntoLuaTyped> = Src::IsIntoNum;
-        type IsFromNil = False;
     }
     impl FromLuaTyped for crate::lua::LuaInt {
         type IsFrom<Src: IntoLuaTyped> = Src::IsIntoInt;
-        type IsFromNil = False;
     }
     impl<A: IntoLuaMultiTyped, R: FromLuaMultiTyped> FromLuaTyped for crate::lua::LuaCallable<A, R> {
         type IsFrom<Src: IntoLuaTyped> = Src::IsIntoCallWith<A, R>;
-        type IsFromNil = False;
     }
     impl<T: FromLuaTyped> FromLuaTyped for Option<T> {
-        type IsFrom<Src: IntoLuaTyped> = Src::IsInto<T>;
-        type IsFromNil = True;
+        type IsFrom<Src: IntoLuaTyped> = IsInto<Src::StripNil, T>;
     }
     impl FromLuaTyped for crate::lua::LuaBottom {
         type IsFrom<Src: IntoLuaTyped> = False;
-        type IsFromNil = False;
     }
     impl<T: FromLuaTyped> FromLuaTyped for crate::lua::LuaTableSeq<T> {
-        type IsFrom<Src: IntoLuaTyped> = Src::IsIntoTableSeq<T>;
-        type IsFromNil = False;
+        type IsFrom<Src: IntoLuaTyped> = Src::IsIntoTableSeqConst<T>;
     }
-    impl<K: IntoLuaTyped + FromLuaTyped, V: FromLuaTyped> FromLuaTyped
-        for crate::lua::LuaTableMap<K, V>
+    impl<T: IntoLuaTyped + FromLuaTyped> FromLuaTyped for crate::lua::LuaTableSeqMut<T> {
+        type IsFrom<Src: IntoLuaTyped> = Src::IsIntoTableSeqMut<T>;
+    }
+    impl<K: FromLuaTyped, V: FromLuaTyped> FromLuaTyped for crate::lua::LuaTableMap<K, V> {
+        type IsFrom<Src: IntoLuaTyped> = Src::IsIntoTableMapConst<K, V>;
+    }
+    impl<K: IntoLuaTyped + FromLuaTyped, V: IntoLuaTyped + FromLuaTyped> FromLuaTyped
+        for crate::lua::LuaTableMapMut<K, V>
     {
-        type IsFrom<Src: IntoLuaTyped> = Src::IsIntoTableMap<K, V>;
-        type IsFromNil = False;
+        type IsFrom<Src: IntoLuaTyped> = Src::IsIntoTableMapMut<K, V>;
     }
     impl<L: FromLuaTyped, R: FromLuaTyped> FromLuaTyped for crate::lua::LuaEither<L, R> {
         type IsFrom<Src: IntoLuaTyped> = Or<Src::IsInto<L>, Src::IsInto<R>>;
-        type IsFromNil = Or<IsNilable<L>, IsNilable<R>>;
     }
 }
 
@@ -196,7 +197,7 @@ mod into_impls {
         type IsIntoBool = True;
     }
     impl_into! {
-        impl crate::lua::LuaTop;
+        impl crate::lua::LuaValue;
     }
     impl_into! {
         impl crate::lua::LuaString;
@@ -211,11 +212,11 @@ mod into_impls {
         type IsIntoStr = True;
     }
     impl_into! {
-        impl crate::lua::LuaTopTable;
+        impl crate::lua::LuaTableAny;
         type IsIntoTable = True;
     }
     impl_into! {
-        impl crate::lua::LuaTopFunc;
+        impl crate::lua::LuaFuncAny;
         type IsIntoFunc = True;
     }
     impl_into! {
@@ -240,27 +241,60 @@ mod into_impls {
         [T: IntoLuaTyped, const N: usize]
         impl [T; N];
         type IsIntoTable = True;
-        type IsIntoTableSeq[U: FromLuaTyped] = T::IsInto<U>;
-        type IsIntoTableMap[K: IntoLuaTyped + FromLuaTyped, V: FromLuaTyped] = And<IsEquiv<crate::lua::LuaInt, K>, T::IsInto<V>>;
+        type IsIntoTableSeqConst[U: FromLuaTyped] = T::IsInto<U>;
+        type IsIntoTableSeqMut[U: IntoLuaTyped + FromLuaTyped] = Self::IsIntoTableSeqConst<U>;
+        type IsIntoTableMapConst[K: FromLuaTyped, V: FromLuaTyped] = And<IsInto<crate::lua::LuaInt, K>, T::IsInto<V>>;
+        type IsIntoTableMapMut[K: IntoLuaTyped + FromLuaTyped, V: IntoLuaTyped + FromLuaTyped] = Self::IsIntoTableMapConst<K, V>;
     }
     impl_into! {
         [T: IntoLuaTyped]
         impl Option<T>;
-        type IsInto[Dst: FromLuaTyped] = And<Dst::IsFromNil, T::IsInto<Dst>>;
-        type IsIntoOption[Dst: FromLuaTyped] = T::IsIntoOption<Dst>;
+        type StripNil = T::StripNil;
+    }
+    impl_into! {
+        [T: FromLuaTyped + IntoLuaTyped]
+        impl crate::lua::LuaTableSeq<T>;
+        type IsIntoTable = True;
+        type IsIntoTableSeqConst[U: FromLuaTyped] = T::IsInto<U>;
+        type IsIntoTableMapConst[K: FromLuaTyped, V: FromLuaTyped] = And<IsInto<crate::lua::LuaInt, K>, IsInto<T, V>>;
+    }
+    impl_into! {
+        [T: FromLuaTyped + IntoLuaTyped]
+        impl crate::lua::LuaTableSeqMut<T>;
+        type IsIntoTable = True;
+        type IsIntoTableSeqConst[U: FromLuaTyped] = T::IsInto<U>;
+        type IsIntoTableSeqMut[U: IntoLuaTyped + FromLuaTyped] = IsEquiv<T, U>;
+        type IsIntoTableMapConst[K: FromLuaTyped, V: FromLuaTyped] = And<IsInto<crate::lua::LuaInt, K>, IsInto<T, V>>;
+        type IsIntoTableMapMut[K: IntoLuaTyped + FromLuaTyped, V: IntoLuaTyped + FromLuaTyped] = And<IsEquiv<crate::lua::LuaInt, K>, IsEquiv<T, V>>;
     }
     impl_into! {
         [T: IntoLuaTyped]
-        impl crate::lua::LuaTableSeq<T>;
+        impl crate::lua::LuaTableSeqOwned<T>;
         type IsIntoTable = True;
-        type IsIntoTableSeq[U: FromLuaTyped] = T::IsInto<U>;
-        type IsIntoTableMap[K: IntoLuaTyped + FromLuaTyped, V: FromLuaTyped] = And<IsEquiv<crate::lua::LuaInt, K>, T::IsInto<V>>;
+        type IsIntoTableSeqConst[U: FromLuaTyped] = T::IsInto<U>;
+        type IsIntoTableSeqMut[U: IntoLuaTyped + FromLuaTyped] = T::IsInto<U>;
+        type IsIntoTableMapConst[K: FromLuaTyped, V: FromLuaTyped] = And<IsInto<crate::lua::LuaInt, K>, IsInto<T, V>>;
+        type IsIntoTableMapMut[K: IntoLuaTyped + FromLuaTyped, V: IntoLuaTyped + FromLuaTyped] = And<IsInto<crate::lua::LuaInt, K>, IsInto<T, V>>;
     }
     impl_into! {
-        [K: IntoLuaTyped + FromLuaTyped, V: IntoLuaTyped]
+        [K: IntoLuaTyped, V: IntoLuaTyped]
         impl crate::lua::LuaTableMap<K, V>;
         type IsIntoTable = True;
-        type IsIntoTableMap[DK: IntoLuaTyped + FromLuaTyped, DV: FromLuaTyped] = And<IsEquiv<K, DK>, V::IsInto<DV>>;
+        type IsIntoTableMapConst[DK: FromLuaTyped, DV: FromLuaTyped] = And<IsInto<K, DK>, IsInto<V, DV>>;
+    }
+    impl_into! {
+        [K: IntoLuaTyped + FromLuaTyped, V: IntoLuaTyped + FromLuaTyped]
+        impl crate::lua::LuaTableMapMut<K, V>;
+        type IsIntoTable = True;
+        type IsIntoTableMapConst[DK: FromLuaTyped, DV: FromLuaTyped] = And<IsInto<K, DK>, IsInto<V, DV>>;
+        type IsIntoTableMapMut[DK: IntoLuaTyped + FromLuaTyped, DV: IntoLuaTyped + FromLuaTyped] = And<IsEquiv<K, DK>, IsEquiv<V, DV>>;
+    }
+    impl_into! {
+        [K: IntoLuaTyped, V: IntoLuaTyped]
+        impl crate::lua::LuaTableMapOwned<K, V>;
+        type IsIntoTable = True;
+        type IsIntoTableMapConst[DK: FromLuaTyped, DV: FromLuaTyped] = And<IsInto<K, DK>, IsInto<V, DV>>;
+        type IsIntoTableMapMut[DK: IntoLuaTyped + FromLuaTyped, DV: IntoLuaTyped + FromLuaTyped] = And<IsInto<K, DK>, IsInto<V, DV>>;
     }
     impl_into! {
         [A: FromLuaMultiTyped, R: IntoLuaMultiTyped]
@@ -271,15 +305,16 @@ mod into_impls {
     macro_rules! defer_by {
         ($mac:ident) => {
             type IsInto<Dst: FromLuaTyped> = $mac!(IsInto<Dst>);
-            type IsIntoOption<Dst: FromLuaTyped> = $mac!(IsIntoOption<Dst>);
             type IsIntoTable = $mac!(IsIntoTable);
             type IsIntoNum = $mac!(IsIntoNum);
             type IsIntoInt = $mac!(IsIntoInt);
             type IsIntoStr = $mac!(IsIntoStr);
             type IsIntoFunc = $mac!(IsIntoFunc);
             type IsIntoBool = $mac!(IsIntoBool);
-            type IsIntoTableSeq<_I: FromLuaTyped> = $mac!(IsIntoTableSeq<_I>);
-            type IsIntoTableMap<_K: IntoLuaTyped + FromLuaTyped, _V: FromLuaTyped> = $mac!(IsIntoTableMap<_K, _V>);
+            type IsIntoTableSeqConst<_I: FromLuaTyped> = $mac!(IsIntoTableSeqConst<_I>);
+            type IsIntoTableMapConst<_K: FromLuaTyped, _V: FromLuaTyped> = $mac!(IsIntoTableMapConst<_K, _V>);
+            type IsIntoTableSeqMut<_I: IntoLuaTyped + FromLuaTyped> = $mac!(IsIntoTableSeqMut<_I>);
+            type IsIntoTableMapMut<_K: IntoLuaTyped + FromLuaTyped, _V: IntoLuaTyped + FromLuaTyped> = $mac!(IsIntoTableMapMut<_K, _V>);
             type IsIntoCallWith<_A: IntoLuaMultiTyped, _R: FromLuaMultiTyped> = $mac!(IsIntoCallWith<_A, _R>);
         };
     }
@@ -289,9 +324,11 @@ mod into_impls {
         };
     }
     impl IntoLuaTyped for crate::lua::LuaBottom {
+        type StripNil = Self;
         defer_by!(defer_to_true);
     }
     impl<T: mlua::IntoLua> IntoLuaTyped for crate::lua::LuaCastIntoAny<T> {
+        type StripNil = Self;
         defer_by!(defer_to_true);
     }
     macro_rules! defer_to_T {
@@ -300,11 +337,13 @@ mod into_impls {
         };
     }
     impl<T: IntoLuaTyped> IntoLuaTyped for crate::lua::LuaDeferErr<T> {
+        type StripNil = T::StripNil;
         defer_by!(defer_to_T);
     }
     impl<T: IntoLuaTyped, F: FnOnce(&mlua::Lua) -> mlua::Result<T>> IntoLuaTyped
         for crate::lua::LuaDefer<F>
     {
+        type StripNil = T::StripNil;
         defer_by!(defer_to_T);
     }
     macro_rules! defer_to_LR_and {
@@ -313,6 +352,7 @@ mod into_impls {
         };
     }
     impl<L: IntoLuaTyped, R: IntoLuaTyped> IntoLuaTyped for crate::lua::LuaEither<L, R> {
+        type StripNil = crate::lua::LuaEither<L::StripNil, R::StripNil>;
         defer_by!(defer_to_LR_and);
     }
 }
@@ -428,7 +468,14 @@ mod multi_impls {
     );
 }
 
-pub trait LuaSub<Sub: FromLuaTyped>: IntoLuaTyped<IsInto<Sub> = True> {}
+pub trait LuaSub<Base: FromLuaTyped>: IntoLuaTyped<IsInto<Base> = True> {
+    fn trans<Next: FromLuaTyped>(self) -> impl LuaSub<Next>
+    where
+        Base: LuaSub<Next>,
+    {
+        crate::lua::LuaCastIntoAny(self)
+    }
+}
 impl<Sub: FromLuaTyped, T: IntoLuaTyped<IsInto<Sub> = True>> LuaSub<Sub> for T {}
 pub trait LuaSubMulti<Sub: FromLuaMultiTyped>: IntoLuaMultiTyped<IsIntoMulti<Sub> = True> {}
 impl<Sub: FromLuaMultiTyped, T: IntoLuaMultiTyped<IsIntoMulti<Sub> = True>> LuaSubMulti<Sub> for T {}

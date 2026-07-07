@@ -17,7 +17,7 @@ impl NvimConf<'_> {
             .ok_or_notify(env);
     }
 
-    fn cmp_opts(&self) -> impl LuaSub<LuaTopTable> {
+    fn cmp_opts(&self) -> impl LuaSub<LuaTableAny> {
         tbl!({
             appearance = tbl!({
                 kind_icons = tbl!({

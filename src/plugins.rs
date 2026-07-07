@@ -108,16 +108,16 @@ impl Nvim {
 
 tbl_proxy!({
     struct GenericPlugin {
-        setup: LuaCallable<LuaTopTable, ()>,
+        setup: LuaCallable<LuaTableAny, ()>,
     }
 });
 
 tbl_proxy!({
     struct Snacks {
-        setup: LuaCallable<LuaTopTable, ()>,
+        setup: LuaCallable<LuaTableMap<LuaString, LuaValue>, ()>,
         git: SnacksGit,
         dashboard: SnacksDash,
-        picker: LuaTableMap<LuaString, LuaCallable<Option<LuaTopTable>, ()>>,
+        picker: LuaTableMap<LuaString, LuaCallable<Option<LuaTableAny>, ()>>,
     }
 });
 tbl_proxy!({
@@ -133,21 +133,21 @@ tbl_proxy!({
 
 tbl_proxy!({
     struct Persistence {
-        setup: LuaCallable<LuaTopTable, ()>,
-        load: LuaCallable<LuaTopTable, ()>,
+        setup: LuaCallable<LuaTableAny, ()>,
+        load: LuaCallable<LuaTableAny, ()>,
     }
 });
 
 tbl_proxy!({
     struct Conform {
-        setup: LuaCallable<LuaTopTable, ()>,
-        formatters_by_ft: LuaTopTable,
+        setup: LuaCallable<LuaTableMapMut<LuaString, LuaValue>, ()>,
+        formatters_by_ft: LuaTableAny,
     }
 });
 
 tbl_proxy!({
     struct Treesitter {
-        setup: LuaCallable<LuaTopTable, ()>,
-        install: LuaCallable<LuaTopTable, ()>,
+        setup: LuaCallable<LuaTableAny, ()>,
+        install: LuaCallable<LuaTableSeqMut<LuaString>, ()>,
     }
 });

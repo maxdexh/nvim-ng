@@ -10,20 +10,18 @@ impl NvimConf<'_> {
     pub fn ft_set_indent(&self, ft: &str, indent: u8) {
         let env = self.env();
         let cb = env.create_autocmd_cb(move |env, ()| {
-            env.vim().init_opt_local(|mut builder| {
-                tbl!(builder = builder, {
-                    shiftwidth = 0;
-                    tabstop = indent;
-                    expandtab = true;
-                })
-            });
+            tbl!(out(&env.globals.vim()?.opt_local()?), {
+                shiftwidth = 0;
+                tabstop = indent;
+                expandtab = true;
+            })?;
             Ok(())
         });
         env.vim()
             .add_autocmd("FileType", AutoCmdOpts::empty().with_pattern(ft), cb);
     }
 
-    pub fn set_formatter(&self, ft: impl LuaSub<LuaString>, table: impl LuaSub<LuaTopTable>) {
+    pub fn set_formatter(&self, ft: impl LuaSub<LuaString>, table: impl LuaSub<LuaTableAny>) {
         let env = self.env();
         mlua::Result::Ok(())
             .and_then(|()| {
