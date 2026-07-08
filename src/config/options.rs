@@ -13,13 +13,16 @@ impl NvimConf<'_> {
                 relativenumber = true;
                 undofile = true;
             })
-        });
+        })
+        .ok_or_notify(env);
+
         do_try(|| {
             tbl!(out(env.globals.vim()?.g()?), {
                 snacks_animate = false;
                 mapleader = " ";
             })
-        });
+        })
+        .ok_or_notify(env);
 
         do_try(|| {
             env.globals.vim()?.diagnostic()?.config()?.call(tbl!({

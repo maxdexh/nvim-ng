@@ -25,7 +25,7 @@ pub mod __tbl {
         fn __finish(self) -> Self::Finish;
     }
     impl<Key, Val, K: IntoLua, V: IntoLua> TableWith<K, V> for TableBuilder<Key, Val> {
-        type Out = TableBuilder<LuaEither<Key, K>, LuaEither<Val, V>>;
+        type Out = TableBuilder<LuaUnion<Key, K>, LuaUnion<Val, V>>;
         fn __with(self, key: K, val: V) -> Result<Self::Out> {
             let table = self.0.into_table_any();
             table.set(key, val)?;
@@ -56,7 +56,7 @@ pub mod __tbl {
     pub fn tbl_seq_append<T: IntoLua, V>(
         seq: LuaTableSeqOwned<V>,
         item: T,
-    ) -> Result<LuaTableSeqOwned<LuaEither<T, V>>> {
+    ) -> Result<LuaTableSeqOwned<LuaUnion<T, V>>> {
         let seq = seq.into_table_any();
         seq.push(item)?;
         Ok(LuaTableSeqOwned::from_table_any(seq))

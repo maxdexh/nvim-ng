@@ -6,14 +6,14 @@ use mlua::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua, ObjectLike};
 pub type LuaError = mlua::Error;
 pub type Result<T, E = LuaError> = std::result::Result<T, E>;
 
-pub type LuaValue = mlua::Value;
+pub type LuaVal = mlua::Value;
 pub type LuaString = mlua::String;
 // FIXME: Replace with type-safe alternatives everywhere
 pub type LuaTableAny = mlua::Table;
 pub type LuaFuncAny = mlua::Function;
 pub type LuaNum = mlua::Number;
 pub type LuaInt = mlua::Integer;
-pub type LuaEither<L, R> = mlua::Either<L, R>;
+pub type LuaUnion<L, R> = mlua::Either<L, R>;
 
 pub type LuaNil = Option<LuaBottom>;
 #[expect(non_upper_case_globals)]
@@ -131,7 +131,10 @@ impl<A, R> LuaCallable<A, R> {
 
 pub struct LuaTableMap<K, V>(LuaTableAny, PhantomData<fn() -> (K, V)>);
 pub struct LuaTableMapOwned<K, V>(LuaTableAny, PhantomData<fn() -> (K, V)>);
-pub struct LuaTableMapMut<K, V>(LuaTableAny, PhantomData<fn(K, V) -> (K, V)>);
+pub struct LuaTableMapMut<K, V>(
+    LuaTableAny,
+    #[allow(clippy::complexity)] PhantomData<fn(K, V) -> (K, V)>,
+);
 pub struct LuaTableSeq<T>(LuaTableAny, PhantomData<fn() -> T>);
 pub struct LuaTableSeqMut<T>(LuaTableAny, PhantomData<fn(T) -> T>);
 pub struct LuaTableSeqOwned<T>(LuaTableAny, PhantomData<fn() -> T>);
@@ -142,8 +145,8 @@ pub trait LuaMutTable {
     fn set(&self, key: impl LuaSub<Self::Key>, val: impl LuaSub<Self::Val>) -> Result<()>;
 }
 impl LuaMutTable for LuaTableAny {
-    type Key = LuaValue;
-    type Val = LuaValue;
+    type Key = LuaVal;
+    type Val = LuaVal;
     fn set(&self, key: impl LuaSub<Self::Key>, val: impl LuaSub<Self::Val>) -> Result<()> {
         ObjectLike::set(self, key, val)
     }
@@ -158,9 +161,24 @@ impl<T: LuaMutTable> LuaMutTable for &T {
 }
 
 const _: () = {
-    macro_rules! g_tbl_prox_impl_read {
+    macro_rules! g_tbl_prox_impl_base {
         ((gp![$($g:tt)*], $t:ty, ($k:ty, $v:ty $(,)?) $(,)?)) => {
+            impl<$($g)*> IntoLua for $t {
+                fn into_lua(self, lua: &Lua) -> mlua::Result<mlua::Value> {
+                    self.into_table_any().into_lua(lua)
+                }
+            }
+            #[allow(dead_code)]
             impl<$($g)*> $t {
+                pub fn new(lua: &Lua) -> Result<Self> {
+                    lua.create_table().map(Self::from_table_any)
+                }
+                pub fn from_table_any(table: LuaTableAny) -> Self {
+                    Self(table, Default::default())
+                }
+                pub fn into_table_any(self) -> LuaTableAny {
+                    self.0
+                }
                 pub fn get(&self, k: impl LuaSub<$k>) -> Result<$v>
                 where
                     $k: FromLuaTyped,
@@ -171,30 +189,9 @@ const _: () = {
             }
         };
     }
-    macro_rules! g_tbl_prox_impl_base {
-        ((gp![$($g:tt)*], $t:ty, ($k:ty, $v:ty $(,)?) $(,)?)) => {
-            impl<$($g)*> IntoLua for $t {
-                fn into_lua(self, lua: &Lua) -> mlua::Result<mlua::Value> {
-                    self.into_table_any().into_lua(lua)
-                }
-            }
-            impl<$($g)*> $t {
-                pub fn new(lua: &Lua) -> Result<Self> {
-                    lua.create_table().map(Self::from_table_any)
-                }
-                pub fn from_table_any(table: LuaTableAny) -> Self {
-                    Self(table, PhantomData)
-                }
-                pub fn into_table_any(self) -> LuaTableAny {
-                    self.0
-                }
-            }
-        };
-    }
     macro_rules! g_tbl_prox_impl_const {
         ((gp![$($g:tt)*], $t:ty, ($k:ty, $v:ty $(,)?) $(,)?)) => {
             g_tbl_prox_impl_base![(gp![$($g)*], $t, ($k, $v))];
-            g_tbl_prox_impl_read![(gp![$($g)*], $t, ($k, $v))];
 
             impl<$($g)*> FromLua for $t
             where
@@ -211,7 +208,6 @@ const _: () = {
     macro_rules! g_tbl_prox_impl_mut {
         ((gp![$($g:tt)*], $t:ty, ($k:ty, $v:ty $(,)?) $(,)?)) => {
             g_tbl_prox_impl_base![(gp![$($g)*], $t, ($k, $v))];
-            g_tbl_prox_impl_read![(gp![$($g)*], $t, ($k, $v))];
 
             impl<$($g)*> LuaMutTable for $t
             where
@@ -237,21 +233,31 @@ const _: () = {
             }
         };
     }
+    macro_rules! g_tbl_prox_impl_owned {
+        ((gp![$($g:tt)*], $t:ty, ($k:ty, $v:ty $(,)?) $(,)?)) => {
+            g_tbl_prox_impl_base![(gp![$($g)*], $t, ($k, $v))];
+
+            impl<$($g)*> LuaMutTable for $t
+            where
+                $k: FromLuaTyped,
+                $v: FromLuaTyped,
+            {
+                type Key = $k;
+                type Val = $v;
+                fn set(&self, k: impl LuaSub<$k>, v: impl LuaSub<$v>) -> Result<()> {
+                    // TODO: Optional Validation
+                    self.0.set(k, v)
+                }
+            }
+        };
+    }
     g_tbl_prox_impl_const![(gp![K, V], LuaTableMap<K, V>, (K, V))];
     g_tbl_prox_impl_mut![(gp![K, V], LuaTableMapMut<K, V>, (K, V))];
-    g_tbl_prox_impl_base![(gp![K, V], LuaTableMapOwned<K, V>, (K, V))];
+    g_tbl_prox_impl_owned![(gp![K, V], LuaTableMapOwned<K, V>, (K, V))];
     g_tbl_prox_impl_const![(gp![T], LuaTableSeq<T>, (LuaInt, T))];
     g_tbl_prox_impl_mut![(gp![T], LuaTableSeqMut<T>, (LuaInt, T))];
-    g_tbl_prox_impl_base![(gp![T], LuaTableSeqOwned<T>, (LuaInt, T))];
+    g_tbl_prox_impl_owned![(gp![T], LuaTableSeqOwned<T>, (LuaInt, T))];
 };
-impl<T> LuaTableSeqMut<T> {
-    pub fn push(&self, val: impl LuaSub<T>) -> Result<()>
-    where
-        T: FromLuaTyped,
-    {
-        self.0.push(val)
-    }
-}
 
 pub struct LuaDefer<F>(pub F);
 impl<T, F: FnOnce(&Lua) -> T> LuaDefer<F> {
@@ -263,8 +269,8 @@ pub fn defer_lua_val<T, F: FnOnce(&Lua) -> Result<T>>(f: F) -> LuaDefer<F> {
     LuaDefer(f)
 }
 impl<T: IntoLua, F: FnOnce(&Lua) -> Result<T>> IntoLua for LuaDefer<F> {
-    fn into_lua(self, lua: &Lua) -> Result<LuaValue> {
-        self.0(lua)?.into_lua(lua)
+    fn into_lua(self, lua: &Lua) -> Result<LuaVal> {
+        self.eval(lua)?.into_lua(lua)
     }
 }
 

@@ -21,7 +21,7 @@ mod proxy {
     });
     tbl_proxy!({
         struct VimKeymap {
-            set: LuaCallable<(LuaTableAny, LuaString, LuaValue, LuaTableAny), ()>,
+            set: LuaCallable<(LuaTableAny, LuaString, LuaVal, LuaTableAny), ()>,
         }
     });
     tbl_proxy!({
@@ -36,14 +36,14 @@ mod proxy {
     });
     tbl_proxy!({
         struct VimVersion {
-            range: LuaCallable<LuaString, LuaValue>,
+            range: LuaCallable<LuaString, LuaVal>,
         }
     });
     tbl_proxy!({
         struct Vim {
-            opt: LuaTableMapMut<LuaString, LuaValue>,
-            opt_local: LuaTableMapMut<LuaString, LuaValue>,
-            g: LuaTableMapMut<LuaString, LuaValue>,
+            opt: LuaTableMapMut<LuaString, LuaVal>,
+            opt_local: LuaTableMapMut<LuaString, LuaVal>,
+            g: LuaTableMapMut<LuaString, LuaVal>,
             uv: VimUV,
             pack: VimPack,
             keymap: VimKeymap,
@@ -57,7 +57,7 @@ mod proxy {
     tbl_proxy!({
         struct Globals {
             vim: Vim,
-            require: LuaCallable<LuaString, LuaValue>,
+            require: LuaCallable<LuaString, LuaVal>,
         }
     });
 }
@@ -158,30 +158,6 @@ impl VimProxy<'_> {
         .ok_or_notify(self.env())
         .is_some()
     }
-    pub fn init_g(
-        &self,
-        init: impl FnOnce(&LuaTableMapMut<LuaString, LuaValue>) -> Result<()>,
-    ) -> bool {
-        do_try(|| init(&self.env().globals.vim()?.g()?))
-            .ok_or_notify(self.env())
-            .is_some()
-    }
-    pub fn init_opt(
-        &self,
-        init: impl FnOnce(&LuaTableMapMut<LuaString, LuaValue>) -> Result<()>,
-    ) -> bool {
-        do_try(|| init(&self.env().globals.vim()?.opt()?))
-            .ok_or_notify(self.env())
-            .is_some()
-    }
-    pub fn init_opt_local(
-        &self,
-        init: impl FnOnce(&LuaTableMapMut<LuaString, LuaValue>) -> Result<()>,
-    ) -> bool {
-        do_try(|| init(&self.env().globals.vim()?.opt_local()?))
-            .ok_or_notify(self.env())
-            .is_some()
-    }
     pub fn run_cmd(&self, cmd: impl LuaSub<LuaString>) -> bool {
         do_try(|| self.env().globals.vim()?.cmd()?.call(cmd))
             .ok_or_notify(self.env())
@@ -191,7 +167,7 @@ impl VimProxy<'_> {
 
 nvim_subproxy!(VimVersionProxy, version, VimProxy);
 impl VimVersionProxy<'_> {
-    pub fn range(&self, spec: &str) -> LuaDeferErr<LuaValue> {
+    pub fn range(&self, spec: &str) -> LuaDeferErr<LuaVal> {
         LuaDeferErr(do_try(|| {
             self.env().globals.vim()?.version()?.range()?.call(spec)
         }))
@@ -199,11 +175,7 @@ impl VimVersionProxy<'_> {
 }
 
 nvim_subproxy!(VimPackProxy, pack, VimProxy);
-opts_struct!(
-    PackOptsAny,
-    PackOpts,
-    [(version, V, LuaValue, with_version)]
-);
+opts_struct!(PackOptsAny, PackOpts, [(version, V, LuaVal, with_version)]);
 impl VimPackProxy<'_> {
     pub fn add(&self, url: &str, opts: impl PackOptsAny) -> bool {
         let env = self.env();

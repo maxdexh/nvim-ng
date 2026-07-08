@@ -114,7 +114,7 @@ tbl_proxy!({
 
 tbl_proxy!({
     struct Snacks {
-        setup: LuaCallable<LuaTableMap<LuaString, LuaValue>, ()>,
+        setup: LuaCallable<LuaTableMap<LuaString, LuaVal>, ()>,
         git: SnacksGit,
         dashboard: SnacksDash,
         picker: LuaTableMap<LuaString, LuaCallable<Option<LuaTableAny>, ()>>,
@@ -140,7 +140,7 @@ tbl_proxy!({
 
 tbl_proxy!({
     struct Conform {
-        setup: LuaCallable<LuaTableMapMut<LuaString, LuaValue>, ()>,
+        setup: LuaCallable<LuaTableMapMut<LuaString, LuaVal>, ()>,
         formatters_by_ft: LuaTableAny,
     }
 });

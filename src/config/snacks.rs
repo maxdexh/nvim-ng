@@ -13,7 +13,7 @@ impl NvimConf<'_> {
         do_try(|| snacks.setup()?.call(self.snacks_opts())).ok_or_notify(env);
     }
 
-    fn snacks_opts(&self) -> impl LuaSub<LuaTableMap<LuaString, LuaValue>> {
+    fn snacks_opts(&self) -> impl LuaSub<LuaTableMap<LuaString, LuaVal>> {
         let env = self.env();
         let find_file =
             env.create_func(|env, ()| env.req_snacks()?.dashboard()?.pick()?.call("files"));
