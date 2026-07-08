@@ -108,6 +108,7 @@ macro_rules! tbl {
         }
     };
     (@key_or_field $field:ident) => { stringify!($field) };
+    (@key_or_field $field:literal) => { $field };
     (@key_or_field [$key:expr]) => { $key };
 }
 pub(crate) use tbl;

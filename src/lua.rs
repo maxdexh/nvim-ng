@@ -10,7 +10,6 @@ pub type LuaVal = mlua::Value;
 pub type LuaString = mlua::String;
 // FIXME: Replace with type-safe alternatives everywhere
 pub type LuaTableAny = mlua::Table;
-pub type LuaFuncAny = mlua::Function;
 pub type LuaNum = mlua::Number;
 pub type LuaInt = mlua::Integer;
 pub type LuaUnion<L, R> = mlua::Either<L, R>;
@@ -39,7 +38,7 @@ impl FromLua for LuaBottom {
 
 #[derive(Clone, Debug)]
 pub enum LuaMaybeCallable {
-    Func(LuaFuncAny),
+    Func(mlua::Function),
     Data(mlua::AnyUserData),
     Table(LuaTableAny),
 }
@@ -118,7 +117,7 @@ impl<A, R> LuaCallable<A, R> {
     pub fn from_any(func: LuaMaybeCallable) -> Self {
         Self(func, PhantomData)
     }
-    pub fn from_any_func(func: LuaFuncAny) -> Self {
+    pub fn from_any_func(func: mlua::Function) -> Self {
         Self::from_any(LuaMaybeCallable::Func(func))
     }
     pub fn into_any(self) -> LuaMaybeCallable {

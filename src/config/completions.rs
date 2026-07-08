@@ -72,8 +72,8 @@ impl NvimConf<'_> {
                 });
                 enabled = true;
                 keymap = tbl!({
-                    ["<Left>"] = false;
-                    ["<Right>"] = false;
+                    "<Left>" = false;
+                    "<Right>" = false;
                     preset = "cmdline";
                 });
             });
@@ -97,13 +97,13 @@ impl NvimConf<'_> {
                 sorts = ["exact", "score", "sort_text"];
             });
             keymap = tbl!({
-                ["<C-e>"] = ["hide", "fallback"];
-                ["<C-n>"] = ["select_next", "fallback"];
-                ["<C-p>"] = ["select_prev", "fallback"];
-                ["<C-space>"] = ["show", "show_documentation", "hide_documentation"];
-                ["<C-y>"] = ["select_and_accept"];
-                ["<Down>"] = ["select_next", "fallback"];
-                ["<Up>"] = ["select_prev", "fallback"];
+                "<C-e>" = ["hide", "fallback"];
+                "<C-n>" = ["select_next", "fallback"];
+                "<C-p>" = ["select_prev", "fallback"];
+                "<C-space>" = ["show", "show_documentation", "hide_documentation"];
+                "<C-y>" = ["select_and_accept"];
+                "<Down>" = ["select_next", "fallback"];
+                "<Up>" = ["select_prev", "fallback"];
                 preset = "default";
             });
 

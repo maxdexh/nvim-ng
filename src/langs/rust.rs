@@ -20,7 +20,7 @@ impl NvimConf<'_> {
                 "rustaceanvim",
                 tbl!({
                     server.default_settings = tbl!({
-                        ["rust-analyzer"] = ra_opts;
+                        "rust-analyzer" = ra_opts;
                     });
                 }),
             )
