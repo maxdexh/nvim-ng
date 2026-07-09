@@ -45,7 +45,7 @@ pub mod __tbl {
             Ok(self)
         }
     }
-    impl<T: LuaMutTable> TableBuildFinish for &T {
+    impl<T: LuaMutTable> TableBuildFinish for T {
         type Finish = ();
         fn __finish(self) -> Self::Finish {}
     }

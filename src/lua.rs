@@ -143,13 +143,6 @@ pub trait LuaMutTable {
 
     fn set(&self, key: impl LuaSub<Self::Key>, val: impl LuaSub<Self::Val>) -> Result<()>;
 }
-impl LuaMutTable for LuaTableAny {
-    type Key = LuaVal;
-    type Val = LuaVal;
-    fn set(&self, key: impl LuaSub<Self::Key>, val: impl LuaSub<Self::Val>) -> Result<()> {
-        ObjectLike::set(self, key, val)
-    }
-}
 impl<T: LuaMutTable> LuaMutTable for &T {
     type Key = T::Key;
     type Val = T::Val;
