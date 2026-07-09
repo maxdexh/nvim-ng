@@ -7,7 +7,7 @@ impl NvimKeymap<'_> {
         modes: impl IntoIterator<Item: AsRef<[u8]>>,
         sequence: impl LuaSub<LuaString>,
         callback_or_action: impl LuaSub<LuaVal>,
-        opts: impl LuaSub<LuaTableAny>,
+        opts: impl LuaSub<LuaDict<LuaVal>>, // TODO: opts struct
     ) -> bool {
         let modes = LuaDeferErr(
             self.lua().create_sequence_from(

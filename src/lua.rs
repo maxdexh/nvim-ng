@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
+use mlua::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti};
 
-use crate::typing::{FromLuaMultiTyped, FromLuaTyped, IntoLuaTyped, LuaSub, LuaSubMulti};
-use mlua::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua, ObjectLike};
+use crate::prelude::*;
+use std::marker::PhantomData;
 
 pub type LuaError = mlua::Error;
 pub type Result<T, E = LuaError> = std::result::Result<T, E>;
@@ -144,22 +144,22 @@ impl<A, R> LuaCallable<A, R> {
     }
 }
 
-pub struct LuaTableMap<K, V>(LuaTableAny, PhantomData<fn() -> (K, V)>);
-pub struct LuaTableMapOwned<K, V>(LuaTableAny, PhantomData<fn() -> (K, V)>);
-pub struct LuaTableMapMut<K, V>(
+pub struct LuaMap<K, V>(LuaTableAny, PhantomData<fn() -> (K, V)>);
+pub struct LuaMapOwned<K, V>(LuaTableAny, PhantomData<fn() -> (K, V)>);
+pub struct LuaMapMut<K, V>(
     LuaTableAny,
     #[allow(clippy::complexity)] PhantomData<fn(K, V) -> (K, V)>,
 );
-pub struct LuaTableSeq<T>(LuaTableAny, PhantomData<fn() -> T>);
-pub struct LuaTableSeqMut<T>(LuaTableAny, PhantomData<fn(T) -> T>);
-pub struct LuaTableSeqOwned<T>(LuaTableAny, PhantomData<fn() -> T>);
-pub trait LuaMutTable {
+pub struct LuaSeq<T>(LuaTableAny, PhantomData<fn() -> T>);
+pub struct LuaSeqMut<T>(LuaTableAny, PhantomData<fn(T) -> T>);
+pub struct LuaSeqOwned<T>(LuaTableAny, PhantomData<fn() -> T>);
+pub trait LuaTableSet {
     type Key: FromLuaTyped;
     type Val: FromLuaTyped;
 
     fn set(&self, key: impl LuaSub<Self::Key>, val: impl LuaSub<Self::Val>) -> Result<()>;
 }
-impl<T: LuaMutTable> LuaMutTable for &T {
+impl<T: LuaTableSet> LuaTableSet for &T {
     type Key = T::Key;
     type Val = T::Val;
 
@@ -179,9 +179,9 @@ const _: () = {
             #[allow(dead_code)]
             impl<$($g)*> $t {
                 pub fn new(lua: &Lua) -> Result<Self> {
-                    lua.create_table().map(Self::from_table_any)
+                    lua.create_table().map(Self::cast_mlua_table)
                 }
-                pub fn from_table_any(table: LuaTableAny) -> Self {
+                pub fn cast_mlua_table(table: LuaTableAny) -> Self {
                     Self(table, Default::default())
                 }
                 pub fn into_table_any(self) -> LuaTableAny {
@@ -208,7 +208,7 @@ const _: () = {
             {
                 fn from_lua(value: mlua::Value, lua: &Lua) -> mlua::Result<Self> {
                     // TODO: Optional Validation
-                    Ok(Self::from_table_any(lua.unpack(value)?))
+                    Ok(Self::cast_mlua_table(lua.unpack(value)?))
                 }
             }
         };
@@ -217,7 +217,7 @@ const _: () = {
         ((gp![$($g:tt)*], $t:ty, ($k:ty, $v:ty $(,)?) $(,)?)) => {
             g_tbl_prox_impl_base![(gp![$($g)*], $t, ($k, $v))];
 
-            impl<$($g)*> LuaMutTable for $t
+            impl<$($g)*> LuaTableSet for $t
             where
                 $k: IntoLuaTyped + FromLuaTyped,
                 $v: IntoLuaTyped + FromLuaTyped,
@@ -236,7 +236,7 @@ const _: () = {
             {
                 fn from_lua(value: mlua::Value, lua: &Lua) -> mlua::Result<Self> {
                     // TODO: Optional Validation
-                    Ok(Self::from_table_any(lua.unpack(value)?))
+                    Ok(Self::cast_mlua_table(lua.unpack(value)?))
                 }
             }
         };
@@ -245,7 +245,7 @@ const _: () = {
         ((gp![$($g:tt)*], $t:ty, ($k:ty, $v:ty $(,)?) $(,)?)) => {
             g_tbl_prox_impl_base![(gp![$($g)*], $t, ($k, $v))];
 
-            impl<$($g)*> LuaMutTable for $t
+            impl<$($g)*> LuaTableSet for $t
             where
                 $k: FromLuaTyped,
                 $v: FromLuaTyped,
@@ -259,12 +259,12 @@ const _: () = {
             }
         };
     }
-    g_tbl_prox_impl_const![(gp![K, V], LuaTableMap<K, V>, (K, V))];
-    g_tbl_prox_impl_mut![(gp![K, V], LuaTableMapMut<K, V>, (K, V))];
-    g_tbl_prox_impl_owned![(gp![K, V], LuaTableMapOwned<K, V>, (K, V))];
-    g_tbl_prox_impl_const![(gp![T], LuaTableSeq<T>, (LuaInt, T))];
-    g_tbl_prox_impl_mut![(gp![T], LuaTableSeqMut<T>, (LuaInt, T))];
-    g_tbl_prox_impl_owned![(gp![T], LuaTableSeqOwned<T>, (LuaInt, T))];
+    g_tbl_prox_impl_const![(gp![K, V], LuaMap<K, V>, (K, V))];
+    g_tbl_prox_impl_mut![(gp![K, V], LuaMapMut<K, V>, (K, V))];
+    g_tbl_prox_impl_owned![(gp![K, V], LuaMapOwned<K, V>, (K, V))];
+    g_tbl_prox_impl_const![(gp![T], LuaSeq<T>, (LuaInt, T))];
+    g_tbl_prox_impl_mut![(gp![T], LuaSeqMut<T>, (LuaInt, T))];
+    g_tbl_prox_impl_owned![(gp![T], LuaSeqOwned<T>, (LuaInt, T))];
 };
 
 pub struct LuaDefer<F>(pub F);

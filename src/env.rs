@@ -21,7 +21,7 @@ mod proxy {
     });
     tbl_proxy!({
         struct VimKeymap {
-            set: LuaCallable<(LuaTableAny, LuaString, LuaVal, LuaTableAny), ()>,
+            set: LuaCallable<(LuaTableAny, LuaString, LuaVal, LuaDict<LuaVal>), ()>,
         }
     });
     tbl_proxy!({
@@ -31,7 +31,7 @@ mod proxy {
     });
     tbl_proxy!({
         struct VimApi {
-            nvim_create_autocmd: LuaCallable<(LuaString, LuaTableAny), ()>,
+            nvim_create_autocmd: LuaCallable<(LuaString, LuaDict<LuaVal>), ()>,
         }
     });
     tbl_proxy!({
@@ -41,9 +41,9 @@ mod proxy {
     });
     tbl_proxy!({
         struct Vim {
-            opt: LuaTableMapMut<LuaString, LuaVal>,
-            opt_local: LuaTableMapMut<LuaString, LuaVal>,
-            g: LuaTableMapMut<LuaString, LuaVal>,
+            opt: LuaDictMut<LuaVal>,
+            opt_local: LuaDictMut<LuaVal>,
+            g: LuaDictMut<LuaVal>,
             uv: VimUV,
             pack: VimPack,
             keymap: VimKeymap,
@@ -127,6 +127,7 @@ impl Nvim {
     }
 }
 
+// TODO: Mandatory opts
 opts_struct!(
     AutoCmdOptsAny,
     AutoCmdOpts,
@@ -153,7 +154,7 @@ impl VimProxy<'_> {
                 .vim()?
                 .api()?
                 .nvim_create_autocmd()?
-                .call((event, opts))
+                .call((event, crate::utils::downcast_mlua_map(opts)))
         })
         .ok_or_notify(self.env())
         .is_some()

@@ -4,16 +4,23 @@ pub fn do_try<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
     f()
 }
 
+pub fn downcast_mlua_map(table: mlua::Table) -> crate::lua::LuaMapOwned<LuaBottom, LuaBottom> {
+    crate::lua::LuaMapOwned::cast_mlua_table(table)
+}
+
+pub type LuaDict<V> = LuaMap<LuaString, V>;
+pub type LuaDictMut<V> = LuaMapMut<LuaString, V>;
+
 #[doc(hidden)]
 pub mod __tbl {
-    use crate::lua::{LuaTableMapOwned, LuaTableSeqOwned};
+    use crate::lua::{LuaMapOwned, LuaSeqOwned};
     use crate::prelude::*;
     use mlua::IntoLua;
 
-    pub struct TableBuilder<K, V>(LuaTableMapOwned<K, V>);
+    pub struct TableBuilder<K, V>(LuaMapOwned<K, V>);
     pub fn builder_new(lua: &Lua) -> Result<TableBuilder<LuaBottom, LuaBottom>> {
         lua.create_table()
-            .map(LuaTableMapOwned::from_table_any)
+            .map(LuaMapOwned::cast_mlua_table)
             .map(TableBuilder)
     }
     pub trait TableWith<K, V> {
@@ -29,37 +36,37 @@ pub mod __tbl {
         fn __with(self, key: K, val: V) -> Result<Self::Out> {
             let table = self.0.into_table_any();
             table.set(key, val)?;
-            Ok(TableBuilder(LuaTableMapOwned::from_table_any(table)))
+            Ok(TableBuilder(LuaMapOwned::cast_mlua_table(table)))
         }
     }
     impl<K, V> TableBuildFinish for TableBuilder<K, V> {
-        type Finish = LuaTableMapOwned<K, V>;
+        type Finish = LuaMapOwned<K, V>;
         fn __finish(self) -> Self::Finish {
             self.0
         }
     }
-    impl<T: LuaMutTable, K: LuaSub<T::Key>, V: LuaSub<T::Val>> TableWith<K, V> for &T {
+    impl<T: LuaTableSet, K: LuaSub<T::Key>, V: LuaSub<T::Val>> TableWith<K, V> for &T {
         type Out = Self;
         fn __with(self, key: K, val: V) -> Result<Self::Out> {
             self.set(key, val)?;
             Ok(self)
         }
     }
-    impl<T: LuaMutTable> TableBuildFinish for T {
+    impl<T: LuaTableSet> TableBuildFinish for T {
         type Finish = ();
         fn __finish(self) -> Self::Finish {}
     }
 
-    pub fn tbl_seq_new(lua: &Lua) -> Result<LuaTableSeqOwned<LuaBottom>> {
-        LuaTableSeqOwned::new(lua)
+    pub fn tbl_seq_new(lua: &Lua) -> Result<LuaSeqOwned<LuaBottom>> {
+        LuaSeqOwned::new(lua)
     }
     pub fn tbl_seq_append<T: IntoLua, V>(
-        seq: LuaTableSeqOwned<V>,
+        seq: LuaSeqOwned<V>,
         item: T,
-    ) -> Result<LuaTableSeqOwned<LuaUnion<T, V>>> {
+    ) -> Result<LuaSeqOwned<LuaUnion<T, V>>> {
         let seq = seq.into_table_any();
         seq.push(item)?;
-        Ok(LuaTableSeqOwned::from_table_any(seq))
+        Ok(LuaSeqOwned::cast_mlua_table(seq))
     }
 }
 

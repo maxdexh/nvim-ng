@@ -320,7 +320,7 @@ mod into_impls {
     };
     impl_into!({
         #[params(T: FromLuaTyped + IntoLuaTyped)]
-        impl crate::lua::LuaTableSeq<T> {}
+        impl crate::lua::LuaSeq<T> {}
 
         default!(general_defaults);
 
@@ -330,7 +330,7 @@ mod into_impls {
     });
     impl_into!({
         #[params(T: FromLuaTyped + IntoLuaTyped)]
-        impl crate::lua::LuaTableSeqMut<T> {}
+        impl crate::lua::LuaSeqMut<T> {}
 
         default!(general_defaults);
 
@@ -342,7 +342,7 @@ mod into_impls {
     });
     impl_into!({
         #[params(T: IntoLuaTyped)]
-        impl crate::lua::LuaTableSeqOwned<T> {}
+        impl crate::lua::LuaSeqOwned<T> {}
 
         default!(general_defaults);
 
@@ -355,7 +355,7 @@ mod into_impls {
     const _: () = {
         macro_rules! defer_into_table_T {
             ($($postfix:tt)*) => {
-                <crate::lua::LuaTableSeqOwned<T> as IntoLuaTyped>::$($postfix)*
+                <crate::lua::LuaSeqOwned<T> as IntoLuaTyped>::$($postfix)*
             };
         }
         impl_into!({
@@ -367,7 +367,7 @@ mod into_impls {
     };
     impl_into!({
         #[params(K: IntoLuaTyped, V: IntoLuaTyped)]
-        impl crate::lua::LuaTableMap<K, V> {}
+        impl crate::lua::LuaMap<K, V> {}
 
         default!(general_defaults);
 
@@ -376,7 +376,7 @@ mod into_impls {
     });
     impl_into!({
         #[params(K: IntoLuaTyped + FromLuaTyped, V: IntoLuaTyped + FromLuaTyped)]
-        impl crate::lua::LuaTableMapMut<K, V> {}
+        impl crate::lua::LuaMapMut<K, V> {}
 
         default!(general_defaults);
 
@@ -386,7 +386,7 @@ mod into_impls {
     });
     impl_into!({
         #[params(K: IntoLuaTyped, V: IntoLuaTyped)]
-        impl crate::lua::LuaTableMapOwned<K, V> {}
+        impl crate::lua::LuaMapOwned<K, V> {}
 
         default!(general_defaults);
 
@@ -494,17 +494,17 @@ mod from_impls {
     impl FromLuaTyped for crate::lua::LuaBottom {
         type IsFrom<Src: IntoLuaTyped> = False;
     }
-    impl<T: FromLuaTyped> FromLuaTyped for crate::lua::LuaTableSeq<T> {
+    impl<T: FromLuaTyped> FromLuaTyped for crate::lua::LuaSeq<T> {
         type IsFrom<Src: IntoLuaTyped> = Src::IsTableSeqConst<T>;
     }
-    impl<T: IntoLuaTyped + FromLuaTyped> FromLuaTyped for crate::lua::LuaTableSeqMut<T> {
+    impl<T: IntoLuaTyped + FromLuaTyped> FromLuaTyped for crate::lua::LuaSeqMut<T> {
         type IsFrom<Src: IntoLuaTyped> = Src::IsTableSeqMut<T>;
     }
-    impl<K: FromLuaTyped, V: FromLuaTyped> FromLuaTyped for crate::lua::LuaTableMap<K, V> {
+    impl<K: FromLuaTyped, V: FromLuaTyped> FromLuaTyped for crate::lua::LuaMap<K, V> {
         type IsFrom<Src: IntoLuaTyped> = Src::IsTableMapConst<K, V>;
     }
     impl<K: IntoLuaTyped + FromLuaTyped, V: IntoLuaTyped + FromLuaTyped> FromLuaTyped
-        for crate::lua::LuaTableMapMut<K, V>
+        for crate::lua::LuaMapMut<K, V>
     {
         type IsFrom<Src: IntoLuaTyped> = Src::IsTableMapMut<K, V>;
     }

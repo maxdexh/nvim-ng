@@ -32,7 +32,7 @@ impl NvimConf<'_> {
         });
     }
 
-    fn bufferline_opts(&self) -> impl LuaSub<LuaTableAny> {
+    fn bufferline_opts(&self) -> impl LuaSub<LuaDict<LuaVal>> {
         tbl!({})
     }
 }

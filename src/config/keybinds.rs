@@ -1,6 +1,10 @@
 use crate::prelude::*;
 
-fn call_picker(env: &Nvim, name: &str, args: impl LuaSub<Option<LuaTableAny>>) -> Result<()> {
+fn call_picker(
+    env: &Nvim,
+    name: &str,
+    args: impl LuaSub<Option<LuaDict<LuaVal>>>,
+) -> Result<()> {
     env.req_snacks()?.picker()?.get(name)?.call(args)
 }
 fn get_cwd(env: &Nvim) -> Result<LuaString> {
