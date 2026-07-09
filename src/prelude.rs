@@ -1,6 +1,6 @@
 pub use crate::env::{Nvim, NvimConf};
 
-pub(crate) use crate::utils::{LuaDict, LuaDictMut, ResultExt, do_try, tbl, tbl_seq};
+pub(crate) use crate::utils::{LuaDict, LuaDictMut, ResultExt, do_try, mk_builder, tbl, tbl_seq};
 
 pub use mlua::{Lua, ObjectLike, UserData};
 

@@ -21,14 +21,18 @@ impl NvimConf<'_> {
             "n",
             "<leader>sx",
             self.create_cb(|conf, ()| call_picker(conf, "resume", LuaNil)),
-            KeymapOpts::empty().with_desc("Resume Picker").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Resume Picker";
+            }),
         );
 
         self.set_keymap(
             "n",
             "<leader>fP",
             self.create_cb(|env, ()| call_picker(env, "pickers", LuaNil)),
-            KeymapOpts::empty().with_desc("Find Picker").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Find Picker";
+            }),
         );
 
         self.set_keymap(
@@ -43,7 +47,9 @@ impl NvimConf<'_> {
                     })),
                 )
             }),
-            KeymapOpts::empty().with_desc("Find Files (cwd)").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Find Files (cwd)";
+            }),
         );
 
         self.set_keymap(
@@ -58,9 +64,9 @@ impl NvimConf<'_> {
                     })),
                 )
             }),
-            KeymapOpts::empty()
-                .with_desc("Find Files (Root Dir)")
-                .finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Find Files (Root Dir)";
+            }),
         );
 
         self.set_keymap(
@@ -75,7 +81,9 @@ impl NvimConf<'_> {
                     })),
                 )
             }),
-            KeymapOpts::empty().with_desc("Grep (cwd)").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Grep (cwd)";
+            }),
         );
 
         self.set_keymap(
@@ -90,7 +98,9 @@ impl NvimConf<'_> {
                     })),
                 )
             }),
-            KeymapOpts::empty().with_desc("Grep (Root Dir)").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Grep (Root Dir)";
+            }),
         );
 
         self.set_keymap(
@@ -105,9 +115,9 @@ impl NvimConf<'_> {
                     })),
                 )
             }),
-            KeymapOpts::empty()
-                .with_desc("Grep Selection (cwd)")
-                .finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Grep Selection (cwd)";
+            }),
         );
 
         self.set_keymap(
@@ -122,53 +132,63 @@ impl NvimConf<'_> {
                     })),
                 )
             }),
-            KeymapOpts::empty()
-                .with_desc("Grep Selection (Root Dir)")
-                .finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Grep Selection (Root Dir)";
+            }),
         );
 
         self.set_keymap(
             "n",
             "<leader>ca",
             self.create_cb(|env, ()| call_picker(env, "code_action", LuaNil)),
-            KeymapOpts::empty().with_desc("Code Action").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Code Action";
+            }),
         );
 
         self.set_keymap(
             "n",
             "gd",
             self.create_cb(|env, ()| call_picker(env, "lsp_definitions", LuaNil)),
-            KeymapOpts::empty().with_desc("Goto Definition").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Goto Definition";
+            }),
         );
 
         self.set_keymap(
             "n",
             "gi",
             self.create_cb(|env, ()| call_picker(env, "lsp_implementations", LuaNil)),
-            KeymapOpts::empty()
-                .with_desc("Goto Implementations")
-                .finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Goto Implementations";
+            }),
         );
 
         self.set_keymap(
             "n",
             "gr",
             self.create_cb(|env, ()| call_picker(env, "lsp_references", LuaNil)),
-            KeymapOpts::empty().with_desc("Goto References").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Goto References";
+            }),
         );
 
         self.set_keymap(
             "v",
             "<C-c>",
             "\"+y",
-            KeymapOpts::empty().with_desc("Copy Selection").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Copy Selection";
+            }),
         );
 
         self.set_keymap(
             "t",
             "<ESC><ESC>",
             "<C-\\><C-n>",
-            KeymapOpts::empty().with_desc("Exit Terminal mode").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Exit Terminal mode";
+            }),
         );
     }
 }

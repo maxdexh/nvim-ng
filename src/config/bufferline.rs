@@ -4,18 +4,13 @@ impl NvimConf<'_> {
     pub fn load_bufferline(&self) {
         let env = self.env();
 
-        do_try(|| {
-            env.globals.vim()?.pack()?.add()?.call([
-                "https://github.com/nvim-tree/nvim-web-devicons",
-                "https://github.com/akinsho/bufferline.nvim",
-            ])
-        })
-        .ok_or_notify(env);
+        self.add_packs([
+            "https://github.com/nvim-tree/nvim-web-devicons",
+            "https://github.com/akinsho/bufferline.nvim",
+        ]);
 
         do_try(|| {
-            env.globals
-                .require()?
-                .call_any_ret::<GenericPlugin>("bufferline")
+            self.call_require::<GenericPlugin>("bufferline")
                 .and_then(|bl| bl.setup()?.call(self.bufferline_opts()))
         })
         .ok_or_notify(env);
@@ -27,7 +22,9 @@ impl NvimConf<'_> {
                 conf.run_cmd("BufferLineCycleNext");
                 Ok(())
             }),
-            KeymapOpts::empty().with_desc("Next Buffer").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Next Buffer";
+            }),
         );
 
         self.set_keymap(
@@ -37,7 +34,9 @@ impl NvimConf<'_> {
                 conf.run_cmd("BufferLineCyclePrev");
                 Ok(())
             }),
-            KeymapOpts::empty().with_desc("Prev Buffer").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Prev Buffer";
+            }),
         );
     }
 

@@ -4,17 +4,13 @@ impl NvimConf<'_> {
     pub fn load_completions(&self) {
         let env = self.env();
 
-        // FIXME: Combine
-        do_try(|| {
-            env.globals.vim()?.pack()?.add()?.call(tbl_seq![
-                PackOpts::empty()
-                    .with_src("https://github.com/Saghen/blink.cmp")
-                    .with_version(env.globals.vim()?.version()?.range()?.call("1.*")?)
-                    .finish(),
-                "https://github.com/L3MON4D3/LuaSnip",
-            ])
-        })
-        .ok_or_notify(env);
+        if let Some(version) = self.version_range("1.*").ok_or_notify(self) {
+            self.add_packs([mk_builder!(PackOpts, {
+                src = "https://github.com/Saghen/blink.cmp";
+                version = version;
+            })]);
+        }
+        self.add_packs(["https://github.com/L3MON4D3/LuaSnip"]);
 
         self.call_require::<GenericPlugin>("blink.cmp")
             .and_then(|it| it.setup()?.call(self.cmp_opts()))

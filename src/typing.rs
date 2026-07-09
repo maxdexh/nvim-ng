@@ -1,4 +1,5 @@
 pub mod logic {
+    // TODO: Add bound that Or<True> = True once needed
     pub trait Bool {
         type And<R: Bool>: Bool;
         type Or<R: Bool>: Bool;
@@ -18,23 +19,25 @@ pub mod logic {
 }
 use logic::*;
 
-pub trait LuaIsInto: IntoLuaTyped {
-    type IsInto<Base: FromLuaTyped>: Bool;
+// TODO: This new system allows us to add nominal types to our struct system!
+pub trait LuaIsSub<Dst>: IntoLuaTyped {
+    type IsSub: Bool;
 }
-impl<T: IntoLuaTyped> LuaIsInto for T {
-    type IsInto<Base: FromLuaTyped> = Base::IsFrom<T>;
+impl<T: IntoLuaTyped, U: FromLuaTyped> LuaIsSub<U> for T {
+    type IsSub = U::IsFrom<T>;
 }
-pub trait LuaSub<Base: FromLuaTyped>: LuaIsInto<IsInto<Base> = True> {}
-impl<Base: FromLuaTyped, T: LuaIsInto<IsInto<Base> = True>> LuaSub<Base> for T {}
 
-pub trait LuaIsIntoMulti: IntoLuaMultiTyped {
-    type IsIntoMulti<Base: FromLuaMultiTyped>: Bool;
+pub trait LuaSub<Base: FromLuaTyped>: LuaIsSub<Base, IsSub = True> {}
+impl<Base: FromLuaTyped, T: LuaIsSub<Base, IsSub = True>> LuaSub<Base> for T {}
+
+pub trait LuaIsSubMulti<Dst>: IntoLuaMultiTyped {
+    type IsSubMulti: Bool;
 }
-impl<T: IntoLuaMultiTyped> LuaIsIntoMulti for T {
-    type IsIntoMulti<Base: FromLuaMultiTyped> = Base::IsFromMulti<T>;
+impl<T: IntoLuaMultiTyped, U: FromLuaMultiTyped> LuaIsSubMulti<U> for T {
+    type IsSubMulti = U::IsFromMulti<T>;
 }
-pub trait LuaSubMulti<Base: FromLuaMultiTyped>: LuaIsIntoMulti<IsIntoMulti<Base> = True> {}
-impl<Base: FromLuaMultiTyped, T: LuaIsIntoMulti<IsIntoMulti<Base> = True>> LuaSubMulti<Base> for T {}
+pub trait LuaSubMulti<Base: FromLuaMultiTyped>: LuaIsSubMulti<Base, IsSubMulti = True> {}
+impl<Base: FromLuaMultiTyped, T: LuaIsSubMulti<Base, IsSubMulti = True>> LuaSubMulti<Base> for T {}
 
 // TODO: Try to use an associated FromLua instead of a bound
 pub trait FromLuaTyped: mlua::FromLua {
@@ -57,7 +60,7 @@ pub trait IntoLuaTyped: mlua::IntoLua {
     type IsCallableWith<A: IntoLuaMultiTyped, R: FromLuaMultiTyped>: Bool;
     type IsStruct<Fields: IntoLuaMultiTyped + FromLuaMultiTyped>: Bool;
 }
-pub type IsInto<Src, Dst> = <Src as LuaIsInto>::IsInto<Dst>;
+pub type IsInto<Src, Dst> = <Src as LuaIsSub<Dst>>::IsSub;
 pub type IsEquiv<T, U> = And<IsInto<T, U>, IsInto<U, T>>;
 
 mod into_impls {
@@ -517,7 +520,7 @@ pub trait IntoLuaMultiTyped: mlua::IntoLuaMulti {
 pub trait FromLuaMultiTyped: mlua::FromLuaMulti {
     type IsFromMulti<Src: IntoLuaMultiTyped>: Bool;
 }
-pub type IsIntoMulti<Src, Dst> = <Src as LuaIsIntoMulti>::IsIntoMulti<Dst>;
+pub type IsIntoMulti<Src, Dst> = <Src as LuaIsSubMulti<Dst>>::IsSubMulti;
 mod multi_impls {
     use super::*;
 

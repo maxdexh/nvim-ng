@@ -158,7 +158,6 @@ macro_rules! builder_struct {
     ({
         $(#[$meta:meta])*
         struct $gname:ident {$(
-            #[with = $with:ident]
             $field:ident: $fty:ty
         ),* $(,)? }
     }) => {
@@ -172,7 +171,7 @@ macro_rules! builder_struct {
         const _: () = {
             $(type $field = crate::lua::LuaNil;)*
             impl $gname<$($field),*> {
-                pub fn empty() -> Self {
+                pub fn _new() -> Self {
                     Self {
                         $($field: crate::lua::LuaNil),*
                     }
@@ -183,7 +182,7 @@ macro_rules! builder_struct {
         #[allow(non_camel_case_types)]
         const _: () = {
             impl<$($field),*> $gname<$($field),*> {
-                crate::utils::builder_struct! { @impl_generic [$($field ($fty) $with)*] $gname [] }
+                crate::utils::builder_struct! { @impl_generic [$($field ($fty))*] $gname [] }
             }
             impl<$($field: mlua::IntoLua),*> mlua::IntoLua for $gname<$($field),*> {
                 fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
@@ -201,7 +200,7 @@ macro_rules! builder_struct {
                 type Repr = mlua::Table;
             }
             impl<$($field: crate::typing::LuaSub<$fty>),*> $gname<$($field),*> {
-                pub fn finish(self) -> crate::lua::lua_defer_impl!(crate::lua::LuaStruct::<$gname>) {
+                pub fn _finish(self) -> crate::lua::lua_defer_impl!(crate::lua::LuaStruct::<$gname>) {
                     crate::lua::lua_defer_val(|lua| {
                         let table = lua.create_table()?;
                         let Self { $($field),* } = self;
@@ -215,11 +214,11 @@ macro_rules! builder_struct {
     ( @impl_generic [] $($rest:tt)* ) => {};
     (
         @impl_generic
-        [$field:ident ($fty:ty) $with:ident $($rfield:ident $rfty:tt $rwith:ident)*]
+        [$field:ident ($fty:ty) $($rfield:ident $rfty:tt)*]
         $struct:ident
         [$($lfield:ident)*]
     ) => {
-        pub fn $with<_Param>(self, $field: _Param) -> $struct<$($lfield,)* _Param, $($rfield,)*> {
+        pub fn $field<_Param>(self, $field: _Param) -> $struct<$($lfield,)* _Param, $($rfield,)*> {
             let Self { $($lfield,)* $field: _, $($rfield,)* } = self;
             $struct {
                 $($lfield,)*
@@ -227,10 +226,21 @@ macro_rules! builder_struct {
                 $($rfield,)*
             }
         }
-        crate::utils::builder_struct! { @impl_generic [$($rfield $rfty $rwith)*] $struct [$($lfield)* $field] }
+        crate::utils::builder_struct! { @impl_generic [$($rfield $rfty)*] $struct [$($lfield)* $field] }
     }
 }
 pub(crate) use builder_struct;
+
+macro_rules! mk_builder {
+    ($($name:ident)::+, {
+        $($field:ident = $val:expr;)*
+    }) => {{
+        $($name)::+::_new()
+            $(.$field($val))*
+            ._finish()
+    }};
+}
+pub(crate) use mk_builder;
 
 macro_rules! from_tbl_proxy {
     ({

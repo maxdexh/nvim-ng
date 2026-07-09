@@ -3,17 +3,12 @@ use crate::{env::vim::pack::PackOpts, prelude::*};
 impl NvimConf<'_> {
     pub fn load_rust_lang(&self) {
         let env = self.env();
-        do_try(|| {
-            let vim = env.globals.vim()?;
-            vim.pack()?.add()?.call([
-                //
-                PackOpts::empty()
-                    .with_src("https://github.com/mrcjkb/rustaceanvim")
-                    .with_version(vim.version()?.range()?.call("^9")?)
-                    .finish(),
-            ])
-        })
-        .ok_or_notify(env);
+        if let Some(version) = self.version_range("^9").ok_or_notify(self) {
+            self.add_packs([mk_builder!(PackOpts, {
+                src = "https://github.com/mrcjkb/rustaceanvim";
+                version = version;
+            })]);
+        }
 
         let ra_opts = tbl!({
             assist = tbl!({

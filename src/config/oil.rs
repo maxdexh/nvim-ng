@@ -23,7 +23,9 @@ impl NvimConf<'_> {
                 conf.run_cmd("Oil --float");
                 Ok(())
             }),
-            KeymapOpts::empty().with_desc("Oil (Float)").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Oil (Float)";
+            }),
         );
         self.set_keymap(
             "n",
@@ -32,7 +34,9 @@ impl NvimConf<'_> {
                 conf.run_cmd("Oil");
                 Ok(())
             }),
-            KeymapOpts::empty().with_desc("Oil (Buffer)").finish(),
+            mk_builder!(KeymapOpts, {
+                desc = "Oil (Buffer)";
+            }),
         );
     }
 

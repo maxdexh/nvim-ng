@@ -6,20 +6,23 @@ impl NvimConf<'_> {
             .and_then(|ts| ts.install()?.call([s]))
             .ok_or_notify(self.env());
     }
-    pub fn ft_set_indent(&self, ft: &str, indent: u8) {
-        let cb = self.create_cb(move |conf, ()| {
-            tbl!(out(&conf.env().globals.vim()?.opt_local()?), {
-                shiftwidth = 0;
-                tabstop = indent;
-                expandtab = true;
-            })
-        });
+    pub fn ft_set_indent(
+        &self,
+        ft: impl LuaSub<LuaString>,
+        indent: impl LuaSub<LuaInt> + 'static + Send + Copy,
+    ) {
         self.add_autocmd(
             "FileType",
-            AutoCmdOpts::empty()
-                .with_pattern(ft)
-                .with_callback(cb)
-                .finish(),
+            mk_builder!(AutoCmdOpts, {
+                pattern = Some(ft);
+                callback = self.create_cb(move |conf, ()| {
+                    tbl!(out(&conf.env().globals.vim()?.opt_local()?), {
+                        shiftwidth = 0;
+                        tabstop = indent;
+                        expandtab = true;
+                    })
+                });
+            }),
         );
     }
     pub fn set_formatter(&self, ft: impl LuaSub<LuaString>, table: impl LuaSub<LuaSeq<LuaString>>) {
@@ -29,18 +32,22 @@ impl NvimConf<'_> {
 
             self.add_autocmd(
                 "FileType",
-                AutoCmdOpts::empty()
-                    .with_once(true)
-                    .with_pattern(ft.clone())
-                    .with_callback(self.create_cb_once(move |env, ()| {
+                mk_builder!(AutoCmdOpts, {
+                    once = true;
+                    pattern = ft.clone();
+                    callback = self.create_cb_once(move |env, ()| {
                         env.req_conform()
                             .and_then(|conform| conform.formatters_by_ft()?.set(ft, table))
-                    }))
-                    .finish(),
+                    });
+                }),
             );
 
             Ok(())
         })
-        .ok_or_notify(self.env());
+        .ok_or_notify(self);
+    }
+
+    pub fn version_range(&self, arg: impl LuaSub<LuaString>) -> Result<LuaVal> {
+        self.env().globals.vim()?.version()?.range()?.call(arg)
     }
 }

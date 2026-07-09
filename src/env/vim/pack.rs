@@ -2,10 +2,7 @@ use crate::prelude::*;
 
 crate::utils::builder_struct!({
     struct PackOpts {
-        #[with = with_src]
         src: LuaString,
-
-        #[with = with_version]
         version: LuaVal,
     }
 });
