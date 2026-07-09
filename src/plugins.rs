@@ -65,21 +65,24 @@ impl<T: mlua::FromLua> CachedSetup<T> {
         }
         std::hint::cold_path();
 
-        match &mut *self.0.1.lock().unwrap_or_else(|pe| pe.into_inner()) {
-            state @ SetupState::Ready(_) => {
-                let module: T = env.call_require(name)?;
-                let SetupState::Ready(cb) = std::mem::replace(state, SetupState::Done) else {
-                    unreachable!()
-                };
-                cb.0(env, &module)?;
-            }
-            SetupState::NotReady => {
-                return Err(LuaError::runtime("setup callback is not ready"));
-            }
-            SetupState::Done => (),
-        }
-
-        Ok(self.0.0.get().unwrap())
+        let (cache, state) = &*self.0;
+        Ok(
+            match &mut *state.lock().unwrap_or_else(|pe| pe.into_inner()) {
+                state @ SetupState::Ready(_) => {
+                    let module: T = env.call_require(name)?;
+                    let SetupState::Ready(cb) = std::mem::replace(state, SetupState::Done) else {
+                        unreachable!()
+                    };
+                    cb.0(env, &module)?;
+                    cache.set(module).unwrap_or_else(|_| unreachable!());
+                    cache.get().unwrap()
+                }
+                SetupState::NotReady => {
+                    return Err(LuaError::runtime("setup callback is not ready"));
+                }
+                SetupState::Done => cache.get().unwrap(),
+            },
+        )
     }
 }
 

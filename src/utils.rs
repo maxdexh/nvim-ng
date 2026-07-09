@@ -75,7 +75,7 @@ macro_rules! tbl {
         crate::utils::tbl! { $($rest)* }.eval($lua)
     };
     ({$( $t:tt )*}) => {
-        crate::lua::defer_lua_val(|lua| {
+        crate::lua::lua_defer_val(|lua| {
             let out = crate::utils::__tbl::builder_new(lua)?;
             crate::utils::tbl! { out(out), { $($t)* } }
         })
@@ -122,7 +122,7 @@ pub(crate) use tbl;
 
 macro_rules! tbl_seq {
     [$($val:expr),* $(,)?] => {
-        crate::lua::defer_lua_val(|lua| {
+        crate::lua::lua_defer_val(|lua| {
             let seq = crate::utils::__tbl::tbl_seq_new(lua)?;
             $(let seq = crate::utils::__tbl::tbl_seq_append(seq, $val)?;)*
             Ok(seq)
@@ -157,6 +157,75 @@ impl<T, E> ResultExt for std::result::Result<T, E> {
         }
     }
 }
+
+macro_rules! builder_struct {
+    (
+        $(#[$meta:meta])* $gname:ident,
+        [$(($field:ident, $gp:ident, $fty:ty, $with:ident)),* $(,)?] $(,)?
+    ) => {
+        #[derive(Default, Debug)]
+        $(#[$meta])*
+        pub struct $gname<$($gp = $fty),*> {
+            $(pub $field: $gp),*
+        }
+        const _: () = {
+            $(type $gp = crate::lua::LuaNil;)*
+            impl $gname<$($gp),*> {
+                pub fn empty() -> Self {
+                    Self {
+                        $($field: crate::lua::LuaNil),*
+                    }
+                }
+            }
+        };
+        impl<$($gp),*> $gname<$($gp),*> {
+            crate::utils::builder_struct! { @impl_generic [$($gp $field ($fty) $with)*] $gname [] }
+        }
+        impl<$($gp: mlua::IntoLua),*> mlua::IntoLua for $gname<$($gp),*> {
+            fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
+                let table = lua.create_table()?;
+                let Self { $($field),* } = self;
+                $(table.raw_set(stringify!($field), $field)?;)*
+                mlua::Result::Ok(mlua::Value::Table(table))
+            }
+        }
+        impl crate::lua::LuaStructInner for $gname {
+            const FIELD_NAMES: &[&[u8]] = &[
+                $(stringify!($field).as_bytes()),*
+            ];
+            type Fields = ($($fty,)*);
+            type Repr = mlua::Table;
+        }
+        impl<$($gp: crate::typing::LuaSub<$fty>),*> $gname<$($gp),*> {
+            pub fn finish(self) -> crate::lua::lua_defer_impl!(crate::lua::LuaStruct::<$gname>) {
+                crate::lua::lua_defer_val(|lua| {
+                    let table = lua.create_table()?;
+                    let Self { $($field),* } = self;
+                    $(table.raw_set(stringify!($field), $field)?;)*
+                    mlua::Result::Ok(crate::lua::LuaStruct::<$gname>::from_repr_unchecked(table))
+                })
+            }
+        }
+    };
+    ( @impl_generic [] $($rest:tt)* ) => {};
+    (
+        @impl_generic
+        [$gp:ident $field:ident ($fty:ty) $with:ident $($rgp:ident $rfield:ident $rfty:tt $rwith:ident)*]
+        $struct:ident
+        [$($lgp:ident $lfield:ident)*]
+    ) => {
+        pub fn $with<_Param>(self, $field: _Param) -> $struct<$($lgp,)* _Param, $($rgp,)*> {
+            let Self { $($lfield,)* $field: _, $($rfield,)* } = self;
+            $struct {
+                $($lfield,)*
+                $field,
+                $($rfield,)*
+            }
+        }
+        crate::utils::builder_struct! { @impl_generic [$($rgp $rfield $rfty $rwith)*] $struct [$($lgp $lfield)* $gp $field] }
+    }
+}
+pub(crate) use builder_struct;
 
 macro_rules! opts_struct {
     ($trait_name:ident, $(#[$meta:meta])* $gname:ident, [$(($field:ident, $gp:ident, $fty:ty, $with:ident)),* $(,)?]) => {

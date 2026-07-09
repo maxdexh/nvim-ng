@@ -7,7 +7,7 @@ pub type LuaError = mlua::Error;
 pub type Result<T, E = LuaError> = std::result::Result<T, E>;
 
 pub type LuaVal = mlua::Value;
-pub type LuaString = mlua::String;
+pub type LuaString = mlua::LuaString;
 // FIXME: Replace with type-safe alternatives everywhere
 pub type LuaTableAny = mlua::Table;
 pub type LuaNum = mlua::Number;
@@ -119,6 +119,7 @@ impl<A, R> LuaCallable<A, R> {
     where
         A: FromLuaMultiTyped,
     {
+        // TODO: Optional validation
         self.as_any().call_any(args)
     }
 
@@ -127,13 +128,14 @@ impl<A, R> LuaCallable<A, R> {
         A: FromLuaMultiTyped,
         R: FromLuaMulti,
     {
+        // TODO: Optional validation
         self.as_any().call_any(args)
     }
 
     pub fn from_any(func: LuaMaybeCallable) -> Self {
         Self(func, PhantomData)
     }
-    pub fn from_any_func(func: mlua::Function) -> Self {
+    pub fn from_mlua_func(func: mlua::Function) -> Self {
         Self::from_any(LuaMaybeCallable::Func(func))
     }
     pub fn into_any(self) -> LuaMaybeCallable {
@@ -273,9 +275,15 @@ impl<T, F: FnOnce(&Lua) -> T> LuaDefer<F> {
         self.0(lua)
     }
 }
-pub fn defer_lua_val<T, F: FnOnce(&Lua) -> Result<T>>(f: F) -> LuaDefer<F> {
+pub fn lua_defer_val<T, F: FnOnce(&Lua) -> Result<T>>(f: F) -> LuaDefer<F> {
     LuaDefer(f)
 }
+macro_rules! lua_defer_impl {
+    ($res:ty) => {
+        crate::lua::LuaDefer<impl FnOnce(&mlua::Lua) -> mlua::Result<$res>>
+    };
+}
+pub(crate) use lua_defer_impl;
 impl<T: IntoLua, F: FnOnce(&Lua) -> Result<T>> IntoLua for LuaDefer<F> {
     fn into_lua(self, lua: &Lua) -> Result<LuaVal> {
         self.eval(lua)?.into_lua(lua)
@@ -301,4 +309,30 @@ impl<T: IntoLua> IntoLua for LuaCastIntoAny<T> {
 
 pub fn lua_conv_sub<U: FromLuaTyped>(lua: &Lua, val: impl LuaSub<U>) -> Result<U> {
     lua.convert(val)
+}
+
+pub trait LuaStructInner: Sized {
+    // FIXME: Add mandatory validation for field names, since we do not have nominals
+    #[expect(unused)]
+    const FIELD_NAMES: &[&[u8]];
+
+    type Fields: FromLuaMultiTyped + IntoLuaMultiTyped;
+    type Repr;
+}
+pub struct LuaStruct<T: LuaStructInner>(T::Repr);
+impl<T: LuaStructInner> LuaStruct<T> {
+    pub fn from_repr_unchecked(repr: T::Repr) -> Self {
+        Self(repr)
+    }
+}
+
+impl<T: LuaStructInner<Repr: mlua::IntoLua>> mlua::IntoLua for LuaStruct<T> {
+    fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
+        self.0.into_lua(lua)
+    }
+}
+impl<T: LuaStructInner<Repr: mlua::FromLua>> mlua::FromLua for LuaStruct<T> {
+    fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
+        mlua::FromLua::from_lua(value, lua).map(LuaStruct)
+    }
 }

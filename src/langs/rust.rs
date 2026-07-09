@@ -1,13 +1,19 @@
-use crate::prelude::*;
+use crate::{env::vim::pack::PackOpts, prelude::*};
 
 impl NvimConf<'_> {
     pub fn load_rust_lang(&self) {
         let env = self.env();
-        let vim = env.vim();
-        vim.pack().add_one(
-            "https://github.com/mrcjkb/rustaceanvim",
-            //PackOpts::empty().with_version(vim.version().range("^9")),
-        );
+        do_try(|| {
+            let vim = env.globals.vim()?;
+            vim.pack()?.add()?.call([
+                //
+                PackOpts::empty()
+                    .with_src("https://github.com/mrcjkb/rustaceanvim")
+                    .with_version(vim.version()?.range()?.call("^9")?)
+                    .finish(),
+            ])
+        })
+        .ok_or_notify(env);
 
         let ra_opts = tbl!({
             assist = tbl!({

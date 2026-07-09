@@ -56,6 +56,7 @@ pub trait IntoLuaTyped: mlua::IntoLua {
     type IsTableMapConst<K: FromLuaTyped, V: FromLuaTyped>: Bool;
     type IsTableMapMut<K: IntoLuaTyped + FromLuaTyped, V: IntoLuaTyped + FromLuaTyped>: Bool;
     type IsCallableWith<A: IntoLuaMultiTyped, R: FromLuaMultiTyped>: Bool;
+    type IsStruct<Fields: IntoLuaMultiTyped + FromLuaMultiTyped>: Bool;
 }
 pub type IsInto<Src, Dst> = <Src as LuaIsInto>::IsInto<Dst>;
 pub type IsEquiv<T, U> = And<IsInto<T, U>, IsInto<U, T>>;
@@ -120,6 +121,9 @@ mod into_impls {
                 $R: crate::typing::FromLuaMultiTyped,
             > = $val;
         };
+        (@sel IsStruct, $name:ident, $val:ty, [$Fs:ident]) => {
+            type $name<$Fs: crate::typing::IntoLuaMultiTyped + crate::typing::FromLuaMultiTyped> = $val;
+        };
         (@sel $item:ident, $name:ident, $val:ty, [$($t:tt)*]) => {
             compile_error! {
                 concat!(
@@ -165,6 +169,7 @@ mod into_impls {
         IsTableMapConst<_K, _V>,
         IsTableMapMut<_K, _V>,
         IsCallableWith<_A, _R>,
+        IsStruct<_Fs>,
     ];
     macro_rules! mk_defaults_except {
         ($mac:ident, [$($item:ident),* $(,)?], $default_mac:ident) => {
@@ -183,6 +188,7 @@ mod into_impls {
                     $mac!(@sel IsTableSeqConst);
                     $mac!(@sel IsTableSeqMut);
                     $mac!(@sel IsCallableWith);
+                    $mac!(@sel IsStruct);
                 };
                 $( (@sel $item) => {}; )*
                 (@sel $other:ident) => {
@@ -456,6 +462,14 @@ mod into_impls {
                 And<Or<IsInto<L, A>, IsInto<L, B>>, Or<IsInto<R, A>, IsInto<R, B>>>;
         });
     };
+    impl_into!({
+        #[params(S: crate::lua::LuaStructInner<Repr: mlua::IntoLua>)]
+        impl crate::lua::LuaStruct<S> {}
+
+        default!(general_defaults);
+
+        type IsStruct<Fs> = And<IsIntoMulti<S::Fields, Fs>, IsIntoMulti<Fs, S::Fields>>;
+    });
 }
 
 mod from_impls {
@@ -510,6 +524,9 @@ mod from_impls {
     }
     impl<L: FromLuaTyped, R: FromLuaTyped> FromLuaTyped for crate::lua::LuaUnion<L, R> {
         type IsFrom<Src: IntoLuaTyped> = Src::IsUnion<L, R>;
+    }
+    impl<S: crate::lua::LuaStructInner<Repr: mlua::FromLua>> FromLuaTyped for crate::lua::LuaStruct<S> {
+        type IsFrom<Src: IntoLuaTyped> = Src::IsStruct<S::Fields>;
     }
 }
 

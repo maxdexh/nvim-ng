@@ -3,9 +3,14 @@ use crate::prelude::*;
 impl NvimConf<'_> {
     pub fn load_snacks(&self) {
         let env = self.env();
-        env.vim()
-            .pack()
-            .add_one("https://github.com/folke/snacks.nvim");
+        do_try(|| {
+            env.globals
+                .vim()?
+                .pack()?
+                .add()?
+                .call(["https://github.com/folke/snacks.nvim"])
+        })
+        .ok_or_notify(env);
 
         let Some(snacks) = env.req_snacks().ok_or_notify(env) else {
             return;

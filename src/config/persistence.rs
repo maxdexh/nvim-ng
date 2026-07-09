@@ -3,9 +3,14 @@ use crate::prelude::*;
 impl NvimConf<'_> {
     pub fn load_persistence(&self) {
         let env = self.env();
-        env.vim()
-            .pack()
-            .add_one("https://github.com/folke/persistence.nvim");
+        do_try(|| {
+            env.globals
+                .vim()?
+                .pack()?
+                .add()?
+                .call(["https://github.com/folke/persistence.nvim"])
+        })
+        .ok_or_notify(env);
 
         env.req_persistence()
             .and_then(|pers| pers.setup()?.call(tbl!({})))

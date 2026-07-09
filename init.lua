@@ -4,7 +4,7 @@ local config_path = vim.fn.stdpath("config") --[[@as string]]
 local output = vim.system({
 	"cargo",
 	"build",
-	"--release",
+	--"--release",
 	"--message-format=json-render-diagnostics",
 }, {
 	cwd = config_path,

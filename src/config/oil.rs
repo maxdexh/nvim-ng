@@ -2,10 +2,15 @@ use crate::{plugins::GenericPlugin, prelude::*};
 
 impl NvimConf<'_> {
     pub fn load_oil(&self) {
-        self.env()
-            .vim()
-            .pack()
-            .add_one("https://github.com/barrettruth/canola.nvim");
+        let env = self.env();
+        do_try(|| {
+            env.globals
+                .vim()?
+                .pack()?
+                .add()?
+                .call(["https://github.com/barrettruth/canola.nvim"])
+        })
+        .ok_or_notify(env);
 
         self.env()
             .call_require::<GenericPlugin>("oil")

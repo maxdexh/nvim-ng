@@ -1,16 +1,20 @@
-use crate::{plugins::GenericPlugin, prelude::*};
+use crate::{env::vim::pack::PackOpts, plugins::GenericPlugin, prelude::*};
 
 impl NvimConf<'_> {
     pub fn load_completions(&self) {
         let env = self.env();
-        env.vim().pack().add_one(
-            "https://github.com/Saghen/blink.cmp",
-            //PackOpts::empty().with_version(env.vim().version().range("1.*")),
-        );
 
-        env.vim()
-            .pack()
-            .add_one("https://github.com/L3MON4D3/LuaSnip");
+        // FIXME: Combine
+        do_try(|| {
+            env.globals.vim()?.pack()?.add()?.call(tbl_seq![
+                PackOpts::empty()
+                    .with_src("https://github.com/Saghen/blink.cmp")
+                    .with_version(env.globals.vim()?.version()?.range()?.call("1.*")?)
+                    .finish(),
+                "https://github.com/L3MON4D3/LuaSnip",
+            ])
+        })
+        .ok_or_notify(env);
 
         env.call_require::<GenericPlugin>("blink.cmp")
             .and_then(|it| it.setup()?.call(self.cmp_opts()))

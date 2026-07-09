@@ -9,7 +9,7 @@ impl NvimConf<'_> {
     }
     pub fn ft_set_indent(&self, ft: &str, indent: u8) {
         let env = self.env();
-        let cb = env.create_autocmd_cb(move |env, ()| {
+        let cb = env.create_cb(move |env, ()| {
             tbl!(out(&env.globals.vim()?.opt_local()?), {
                 shiftwidth = 0;
                 tabstop = indent;
@@ -33,7 +33,7 @@ impl NvimConf<'_> {
                     AutoCmdOpts::empty()
                         .with_once(true)
                         .with_pattern(ft.clone()),
-                    env.create_autocmd_cb_once(move |env, ()| {
+                    env.create_cb_once(move |env, ()| {
                         env.req_conform()
                             .and_then(|conform| conform.formatters_by_ft()?.set(ft, table))
                             .ok_or_notify(env);

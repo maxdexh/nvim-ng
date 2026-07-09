@@ -3,9 +3,15 @@ use crate::prelude::*;
 impl NvimConf<'_> {
     pub fn load_conform(&self) {
         let env = self.env();
-        env.vim()
-            .pack()
-            .add_one("https://github.com/stevearc/conform.nvim");
+
+        do_try(|| {
+            env.globals
+                .vim()?
+                .pack()?
+                .add()?
+                .call(["https://github.com/stevearc/conform.nvim"])
+        })
+        .ok_or_notify(env);
 
         env.req_cache
             .conform
