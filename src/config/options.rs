@@ -5,7 +5,7 @@ impl NvimConf<'_> {
         let env = self.env();
 
         do_try(|| {
-            tbl!(out(env.globals.vim()?.opt()?), {
+            tbl!(out(&env.globals.vim()?.opt()?), {
                 shiftwidth = 0;
                 tabstop = 2;
                 expandtab = true;
@@ -17,7 +17,7 @@ impl NvimConf<'_> {
         .ok_or_notify(env);
 
         do_try(|| {
-            tbl!(out(env.globals.vim()?.g()?), {
+            tbl!(out(&env.globals.vim()?.g()?), {
                 snacks_animate = false;
                 mapleader = " ";
             })
