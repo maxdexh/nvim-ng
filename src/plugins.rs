@@ -115,6 +115,7 @@ impl NvimConf<'_> {
     }
 }
 
+// TODO: Stricter typing
 from_tbl_proxy!({
     struct GenericPlugin {
         setup: LuaCallable<LuaDict<LuaVal>, ()>,
@@ -142,21 +143,21 @@ from_tbl_proxy!({
 
 from_tbl_proxy!({
     struct Persistence {
-        setup: LuaCallable<LuaTableAny, ()>,
-        load: LuaCallable<LuaTableAny, ()>,
+        setup: LuaCallable<LuaDict<LuaVal>, ()>,
+        load: LuaCallable<LuaDict<LuaVal>, ()>,
     }
 });
 
 from_tbl_proxy!({
     struct Conform {
-        setup: LuaCallable<LuaMapMut<LuaString, LuaVal>, ()>,
-        formatters_by_ft: LuaTableAny,
+        setup: LuaCallable<LuaDict<LuaVal>, ()>,
+        formatters_by_ft: LuaDictMut<LuaSeq<LuaString>>,
     }
 });
 
 from_tbl_proxy!({
     struct Treesitter {
-        setup: LuaCallable<LuaTableAny, ()>,
-        install: LuaCallable<LuaSeqMut<LuaString>, ()>,
+        setup: LuaCallable<LuaDict<LuaVal>, ()>,
+        install: LuaCallable<LuaSeq<LuaString>, ()>,
     }
 });

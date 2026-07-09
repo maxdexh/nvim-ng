@@ -5,12 +5,15 @@ crate::utils::from_tbl_proxy!({
         nvim_create_autocmd: LuaCallable<(LuaString, LuaStruct<AutoCmdOpts>), ()>,
     }
 });
+crate::utils::builder_struct!({
+    struct AutoCmdOpts {
+        #[with = with_callback]
+        callback: LuaCallable<(), ()>,
 
-crate::utils::builder_struct!(
-    AutoCmdOpts,
-    [
-        (callback, C, LuaCallable<(), ()>, with_callback),
-        (once, O, Option<bool>, with_once),
-        (pattern, P, Option<LuaString>, with_pattern),
-    ]
-);
+        #[with = with_once]
+        once: Option<bool>,
+
+        #[with = with_pattern]
+        pattern: Option<LuaString>,
+    }
+});

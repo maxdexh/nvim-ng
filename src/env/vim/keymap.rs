@@ -14,4 +14,9 @@ crate::utils::from_tbl_proxy!({
     }
 });
 
-crate::utils::builder_struct!(KeymapOpts, [(desc, S, LuaString, with_desc),]);
+crate::utils::builder_struct!({
+    struct KeymapOpts {
+        #[with = with_desc]
+        desc: LuaString,
+    }
+});

@@ -8,8 +8,6 @@ pub type Result<T, E = LuaError> = std::result::Result<T, E>;
 
 pub type LuaVal = mlua::Value;
 pub type LuaString = mlua::LuaString;
-// FIXME: Replace with type-safe alternatives everywhere
-pub type LuaTableAny = mlua::Table;
 pub type LuaNum = mlua::Number;
 pub type LuaInt = mlua::Integer;
 pub type LuaUnion<L, R> = mlua::Either<L, R>;
@@ -56,7 +54,7 @@ impl FromLua for LuaBottom {
 pub enum LuaMaybeCallable {
     Func(mlua::Function),
     Data(mlua::AnyUserData),
-    Table(LuaTableAny),
+    Table(mlua::Table),
 }
 impl LuaMaybeCallable {
     pub fn call_any<R: FromLuaMulti>(&self, args: impl IntoLuaMulti) -> Result<R> {
@@ -146,15 +144,15 @@ impl<A, R> LuaCallable<A, R> {
     }
 }
 
-pub struct LuaMap<K, V>(LuaTableAny, PhantomData<fn() -> (K, V)>);
-pub struct LuaMapOwned<K, V>(LuaTableAny, PhantomData<fn() -> (K, V)>);
+pub struct LuaMap<K, V>(mlua::Table, PhantomData<fn() -> (K, V)>);
+pub struct LuaMapOwned<K, V>(mlua::Table, PhantomData<fn() -> (K, V)>);
 pub struct LuaMapMut<K, V>(
-    LuaTableAny,
+    mlua::Table,
     #[allow(clippy::complexity)] PhantomData<fn(K, V) -> (K, V)>,
 );
-pub struct LuaSeq<T>(LuaTableAny, PhantomData<fn() -> T>);
-pub struct LuaSeqMut<T>(LuaTableAny, PhantomData<fn(T) -> T>);
-pub struct LuaSeqOwned<T>(LuaTableAny, PhantomData<fn() -> T>);
+pub struct LuaSeq<T>(mlua::Table, PhantomData<fn() -> T>);
+pub struct LuaSeqMut<T>(mlua::Table, PhantomData<fn(T) -> T>);
+pub struct LuaSeqOwned<T>(mlua::Table, PhantomData<fn() -> T>);
 pub trait LuaTableSet {
     type Key: FromLuaTyped;
     type Val: FromLuaTyped;
@@ -183,10 +181,10 @@ const _: () = {
                 pub fn new(lua: &Lua) -> Result<Self> {
                     lua.create_table().map(Self::cast_mlua_table)
                 }
-                pub fn cast_mlua_table(table: LuaTableAny) -> Self {
+                pub fn cast_mlua_table(table: mlua::Table) -> Self {
                     Self(table, Default::default())
                 }
-                pub fn into_table_any(self) -> LuaTableAny {
+                pub fn into_table_any(self) -> mlua::Table {
                     self.0
                 }
                 pub fn get(&self, k: impl LuaSub<$k>) -> Result<$v>

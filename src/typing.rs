@@ -41,7 +41,6 @@ pub trait FromLuaTyped: mlua::FromLua {
     type IsFrom<Src: IntoLuaTyped>: Bool;
 }
 pub trait IntoLuaTyped: mlua::IntoLua {
-    type IsTable: Bool;
     type IsNum: Bool;
     type IsInt: Bool;
     type IsStr: Bool;
@@ -70,9 +69,6 @@ mod into_impls {
         }) => {$(
             add_bounds!{ @sel $item, $item, $val, [$($($P),*)?] }
         )*};
-        (@sel IsTable, $name:ident, $val:ty, []) => {
-            type $name = $val;
-        };
         (@sel IsNum, $name:ident, $val:ty, []) => {
             type $name = $val;
         };
@@ -156,7 +152,6 @@ mod into_impls {
         };
     }
     mk_defer_defaults![
-        IsTable,
         IsNum,
         IsInt,
         IsStr,
@@ -175,7 +170,6 @@ mod into_impls {
         ($mac:ident, [$($item:ident),* $(,)?], $default_mac:ident) => {
             macro_rules! $mac {
                 () => {
-                    $mac!(@sel IsTable);
                     $mac!(@sel IsNum);
                     $mac!(@sel IsInt);
                     $mac!(@sel IsStr);
@@ -271,13 +265,6 @@ mod into_impls {
         lua_strs!(&str, String);
     };
     impl_into!({
-        impl crate::lua::LuaTableAny {}
-
-        default!(general_defaults);
-
-        type IsTable = True;
-    });
-    impl_into!({
         impl mlua::Function {}
 
         default!(general_defaults);
@@ -330,7 +317,6 @@ mod into_impls {
 
         default!(general_defaults);
 
-        type IsTable = True;
         type IsTableSeqConst<U> = IsInto<T, U>;
         type IsTableMapConst<K, V> = And<IsInto<crate::lua::LuaInt, K>, IsInto<T, V>>;
     });
@@ -340,7 +326,6 @@ mod into_impls {
 
         default!(general_defaults);
 
-        type IsTable = True;
         type IsTableSeqConst<U> = IsInto<T, U>;
         type IsTableSeqMut<U> = IsEquiv<T, U>;
         type IsTableMapConst<K, V> = And<IsInto<crate::lua::LuaInt, K>, IsInto<T, V>>;
@@ -352,7 +337,6 @@ mod into_impls {
 
         default!(general_defaults);
 
-        type IsTable = True;
         type IsTableSeqConst<U> = IsInto<T, U>;
         type IsTableSeqMut<U> = IsInto<T, U>;
         type IsTableMapConst<K, V> = And<IsInto<crate::lua::LuaInt, K>, IsInto<T, V>>;
@@ -377,7 +361,6 @@ mod into_impls {
 
         default!(general_defaults);
 
-        type IsTable = True;
         type IsTableMapConst<DK, DV> = And<IsInto<K, DK>, IsInto<V, DV>>;
     });
     impl_into!({
@@ -386,7 +369,6 @@ mod into_impls {
 
         default!(general_defaults);
 
-        type IsTable = True;
         type IsTableMapConst<DK, DV> = And<IsInto<K, DK>, IsInto<V, DV>>;
         type IsTableMapMut<DK, DV> = And<IsEquiv<K, DK>, IsEquiv<V, DV>>;
     });
@@ -396,7 +378,6 @@ mod into_impls {
 
         default!(general_defaults);
 
-        type IsTable = True;
         type IsTableMapConst<DK, DV> = And<IsInto<K, DK>, IsInto<V, DV>>;
         type IsTableMapMut<DK, DV> = And<IsInto<K, DK>, IsInto<V, DV>>;
     });
@@ -480,9 +461,6 @@ mod from_impls {
     }
     impl FromLuaTyped for crate::lua::LuaString {
         type IsFrom<Src: IntoLuaTyped> = Src::IsStr;
-    }
-    impl FromLuaTyped for crate::lua::LuaTableAny {
-        type IsFrom<Src: IntoLuaTyped> = Src::IsTable;
     }
     impl FromLuaTyped for mlua::Function {
         type IsFrom<Src: IntoLuaTyped> = Src::IsFunc;

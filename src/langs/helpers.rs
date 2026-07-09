@@ -22,7 +22,7 @@ impl NvimConf<'_> {
                 .finish(),
         );
     }
-    pub fn set_formatter(&self, ft: impl LuaSub<LuaString>, table: impl LuaSub<LuaTableAny>) {
+    pub fn set_formatter(&self, ft: impl LuaSub<LuaString>, table: impl LuaSub<LuaSeq<LuaString>>) {
         do_try(|| {
             let table = lua_conv_sub(self.lua(), table)?;
             let ft = lua_conv_sub(self.lua(), ft)?;

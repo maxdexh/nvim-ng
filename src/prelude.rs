@@ -6,8 +6,7 @@ pub use mlua::{Lua, ObjectLike, UserData};
 
 pub use crate::lua::{
     LuaBottom, LuaCallable, LuaDeferErr, LuaError, LuaInt, LuaMap, LuaMapMut, LuaNil, LuaSeq,
-    LuaSeqMut, LuaString, LuaStruct, LuaTableAny, LuaTableSet, LuaUnion, LuaVal, Result,
-    lua_conv_sub,
+    LuaString, LuaStruct, LuaTableSet, LuaUnion, LuaVal, Result, lua_conv_sub,
 };
 pub use crate::typing::{
     FromLuaMultiTyped, FromLuaTyped, IntoLuaMultiTyped, IntoLuaTyped, LuaSub, LuaSubMulti,
