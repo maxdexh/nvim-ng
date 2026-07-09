@@ -6,10 +6,12 @@ crate::utils::from_tbl_proxy!({
             (
                 LuaUnion<LuaString, LuaSeq<LuaString>>,
                 LuaString,
-                LuaVal,
-                LuaDict<LuaVal>,
+                LuaUnion<LuaString, LuaCallable<(), ()>>,
+                LuaStruct<KeymapOpts>,
             ),
             (),
         >,
     }
 });
+
+crate::utils::builder_struct!(KeymapOpts, [(desc, S, LuaString, with_desc),]);

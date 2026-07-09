@@ -4,10 +4,6 @@ pub fn do_try<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
     f()
 }
 
-pub fn downcast_mlua_map(table: mlua::Table) -> crate::lua::LuaMapOwned<LuaBottom, LuaBottom> {
-    crate::lua::LuaMapOwned::cast_mlua_table(table)
-}
-
 pub type LuaDict<V> = LuaMap<LuaString, V>;
 pub type LuaDictMut<V> = LuaMapMut<LuaString, V>;
 
@@ -135,7 +131,7 @@ pub trait ResultExt {
     type Ok;
     type Err;
 
-    fn ok_or_notify(self, env: &Nvim) -> Option<Self::Ok>
+    fn ok_or_notify(self, env: impl AsRef<Nvim>) -> Option<Self::Ok>
     where
         Self::Err: Into<LuaError>;
 }
@@ -143,7 +139,7 @@ impl<T, E> ResultExt for std::result::Result<T, E> {
     type Ok = T;
     type Err = E;
 
-    fn ok_or_notify(self, env: &Nvim) -> Option<T>
+    fn ok_or_notify(self, env: impl AsRef<Nvim>) -> Option<T>
     where
         E: Into<LuaError>,
     {
@@ -151,7 +147,7 @@ impl<T, E> ResultExt for std::result::Result<T, E> {
         match res {
             Ok(ok) => Some(ok),
             Err(err) => {
-                env.notify_err(&err);
+                env.as_ref().notify_err(&err);
                 None
             }
         }
@@ -226,107 +222,6 @@ macro_rules! builder_struct {
     }
 }
 pub(crate) use builder_struct;
-
-macro_rules! opts_struct {
-    ($trait_name:ident, $(#[$meta:meta])* $gname:ident, [$(($field:ident, $gp:ident, $fty:ty, $with:ident)),* $(,)?]) => {
-        pub trait $trait_name: mlua::IntoLua {
-            fn into_table(self, lua: &mlua::Lua) -> mlua::Result<mlua::Table>;
-        }
-        impl $trait_name for mlua::Table {
-            fn into_table(self, _: &mlua::Lua) -> mlua::Result<mlua::Table> {
-                Ok(self)
-            }
-        }
-
-        #[derive(Default, Debug)]
-        $(#[$meta])*
-        pub struct $gname<$($gp = crate::lua::LuaNil),*> {
-            $(pub $field: $gp),*
-        }
-        impl $gname {
-            pub fn empty() -> Self {
-                Self {
-                    $($field: crate::lua::LuaNil),*
-                }
-            }
-        }
-        impl<$($gp),*> $gname<$($gp),*> {
-            crate::utils::opts_struct! { @impl_generic [$($gp $field ($fty) $with)*] $gname [] }
-        }
-        impl<$($gp: crate::typing::LuaSub<Option<$fty>>),*> mlua::IntoLua for $gname<$($gp),*> {
-            fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
-                self.into_table(lua).map(mlua::Value::Table)
-            }
-        }
-        impl<$($gp: crate::typing::LuaSub<Option<$fty>>),*> $trait_name for $gname<$($gp),*> {
-            fn into_table(self, lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
-                let Self { $($field),* } = self;
-                let tbl = lua.create_table_with_capacity(0, 0usize $(+ {let $field=1; $field})*)?;
-                $(tbl.raw_set(stringify!($field), $field)?;)*
-                Ok(tbl)
-            }
-        }
-    };
-    ( @impl_generic [] $($rest:tt)* ) => {};
-    (
-        @impl_generic
-        [$gp:ident $field:ident ($fty:ty) $with:ident $($rgp:ident $rfield:ident $rfty:tt $rwith:ident)*]
-        $struct:ident
-        [$($lgp:ident $lfield:ident)*]
-    ) => {
-        pub fn $with<_Param: crate::typing::LuaSub<$fty>>(self, $field: _Param) -> $struct<$($lgp,)* Option<_Param>, $($rgp,)*> {
-            let Self { $($lfield,)* $field: _, $($rfield,)* } = self;
-            $struct {
-                $($lfield,)*
-                $field: Some($field),
-                $($rfield,)*
-            }
-        }
-        crate::utils::opts_struct! { @impl_generic [$($rgp $rfield $rfty $rwith)*] $struct [$($lgp $lfield)* $gp $field] }
-    }
-}
-pub(crate) use opts_struct;
-
-macro_rules! nvim_subproxy {
-    ($ty:ident, $get:ident, $base:ident) => {
-        #[derive(Debug)]
-        pub struct $ty<'a>(&'a crate::prelude::Nvim);
-        impl $base<'_> {
-            pub fn $get(&self) -> $ty<'_> {
-                $ty(self.env())
-            }
-        }
-        crate::utils::_proxy_impl!($ty);
-    };
-}
-pub(crate) use nvim_subproxy;
-macro_rules! nvim_proxy {
-    ($ty:ident, $get:ident) => {
-        #[derive(Debug)]
-        pub struct $ty<'a>(&'a crate::prelude::Nvim);
-        impl crate::prelude::Nvim {
-            pub fn $get(&self) -> $ty<'_> {
-                $ty(self)
-            }
-        }
-        crate::utils::_proxy_impl!($ty);
-    };
-}
-pub(crate) use nvim_proxy;
-macro_rules! _proxy_impl {
-    ($ty:ident) => {
-        impl $ty<'_> {
-            pub fn env(&self) -> &crate::prelude::Nvim {
-                self.0
-            }
-            #[allow(dead_code)]
-            pub fn lua(&self) -> &Lua {
-                &self.env().lua
-            }
-        }
-    };
-}
-pub(crate) use _proxy_impl;
 
 macro_rules! from_tbl_proxy {
     ({

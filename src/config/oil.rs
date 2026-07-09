@@ -1,4 +1,4 @@
-use crate::{plugins::GenericPlugin, prelude::*};
+use crate::{env::vim::keymap::KeymapOpts, plugins::GenericPlugin, prelude::*};
 
 impl NvimConf<'_> {
     pub fn load_oil(&self) {
@@ -12,20 +12,28 @@ impl NvimConf<'_> {
         })
         .ok_or_notify(env);
 
-        self.env()
-            .call_require::<GenericPlugin>("oil")
+        self.call_require::<GenericPlugin>("oil")
             .and_then(|oil| oil.setup()?.call(self.oil_opts()))
             .ok_or_notify(self.env());
 
-        let keymap = self.keymap();
-        keymap.set(["n"], "<leader>fe", "Oil (Float)", |env| {
-            env.vim().run_cmd("Oil --float");
-            Ok(())
-        });
-        keymap.set(["n"], "<leader>fE", "Oil (Buffer)", |env| {
-            env.vim().run_cmd("Oil");
-            Ok(())
-        });
+        self.set_keymap(
+            "n",
+            "<leader>fe",
+            self.create_cb(|conf, ()| {
+                conf.run_cmd("Oil --float");
+                Ok(())
+            }),
+            KeymapOpts::empty().with_desc("Oil (Float)").finish(),
+        );
+        self.set_keymap(
+            "n",
+            "<leader>fE",
+            self.create_cb(|conf, ()| {
+                conf.run_cmd("Oil");
+                Ok(())
+            }),
+            KeymapOpts::empty().with_desc("Oil (Buffer)").finish(),
+        );
     }
 
     fn oil_opts(&self) -> impl LuaSub<LuaDict<LuaVal>> {

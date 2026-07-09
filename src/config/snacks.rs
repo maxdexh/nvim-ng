@@ -12,20 +12,19 @@ impl NvimConf<'_> {
         })
         .ok_or_notify(env);
 
-        let Some(snacks) = env.req_snacks().ok_or_notify(env) else {
+        let Some(snacks) = self.req_snacks().ok_or_notify(env) else {
             return;
         };
         do_try(|| snacks.setup()?.call(self.snacks_opts())).ok_or_notify(env);
     }
 
     fn snacks_opts(&self) -> impl LuaSub<LuaDict<LuaVal>> {
-        let env = self.env();
         let find_file =
-            env.create_func(|env, ()| env.req_snacks()?.dashboard()?.pick()?.call("files"));
+            self.create_cb(|conf, ()| conf.req_snacks()?.dashboard()?.pick()?.call("files"));
         let find_text =
-            env.create_func(|env, ()| env.req_snacks()?.dashboard()?.pick()?.call("live_grep"));
-        let load_session = env.create_func(|env, ()| {
-            env.req_persistence()?.load()?.call(tbl!({
+            self.create_cb(|conf, ()| conf.req_snacks()?.dashboard()?.pick()?.call("live_grep"));
+        let load_session = self.create_cb(|conf, ()| {
+            conf.req_persistence()?.load()?.call(tbl!({
                 last = true;
             }))
         });

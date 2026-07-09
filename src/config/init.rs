@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 impl Nvim {
     pub fn load_init(&self) {
-        let conf = self.config();
+        let conf = self.conf();
         conf.load_options();
         conf.load_keybinds();
 

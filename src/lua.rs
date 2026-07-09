@@ -300,6 +300,7 @@ where
     }
 }
 
+#[allow(dead_code)]
 pub struct LuaCastIntoAny<T>(pub T);
 impl<T: IntoLua> IntoLua for LuaCastIntoAny<T> {
     fn into_lua(self, lua: &Lua) -> mlua::Result<mlua::Value> {

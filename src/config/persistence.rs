@@ -12,7 +12,7 @@ impl NvimConf<'_> {
         })
         .ok_or_notify(env);
 
-        env.req_persistence()
+        self.req_persistence()
             .and_then(|pers| pers.setup()?.call(tbl!({})))
             .ok_or_notify(env);
     }

@@ -1,124 +1,174 @@
-use crate::prelude::*;
+use crate::{env::vim::keymap::KeymapOpts, prelude::*};
 
 fn call_picker(
-    env: &Nvim,
+    conf: NvimConf,
     name: &str,
     args: impl LuaSub<Option<LuaDict<LuaVal>>>,
 ) -> Result<()> {
-    env.req_snacks()?.picker()?.get(name)?.call(args)
+    conf.req_snacks()?.picker()?.get(name)?.call(args)
 }
-fn get_cwd(env: &Nvim) -> Result<LuaString> {
-    env.globals.vim()?.uv()?.cwd()?.call(())
+fn get_cwd(conf: NvimConf) -> Result<LuaString> {
+    conf.env().globals.vim()?.uv()?.cwd()?.call(())
 }
-fn get_root(env: &Nvim) -> Result<LuaString> {
-    env.req_snacks()
+fn get_root(conf: NvimConf) -> Result<LuaString> {
+    conf.req_snacks()
         .and_then(|snacks| snacks.git()?.get_root()?.call(()))?
-        .map_or_else(|| get_cwd(env), Ok)
+        .map_or_else(|| get_cwd(conf), Ok)
 }
 impl NvimConf<'_> {
     pub fn load_keybinds(&self) {
-        let keymap = self.keymap();
-
-        keymap.set(["n"], "<leader>sx", "Resume Picker", |env| {
-            call_picker(env, "resume", LuaNil)
-        });
-
-        keymap.set(["n"], "<leader>fP", "Find Picker", |env| {
-            call_picker(env, "pickers", LuaNil)
-        });
-
-        keymap.set(["n"], "<leader>ff", "Find Files (cwd)", |env| {
-            call_picker(
-                env,
-                "files",
-                Some(tbl!({
-                    cwd = get_cwd(env)?;
-                })),
-            )
-        });
-
-        keymap.set(["n"], "<leader>fF", "Find Files (Root Dir)", |env| {
-            call_picker(
-                env,
-                "files",
-                Some(tbl!({
-                    cwd = get_root(env)?;
-                })),
-            )
-        });
-
-        keymap.set(["n"], "<leader>sg", "Grep (cwd)", |env| {
-            call_picker(
-                env,
-                "grep",
-                Some(tbl!({
-                    cwd = get_cwd(env)?;
-                })),
-            )
-        });
-
-        keymap.set(["n"], "<leader>sG", "Grep (Root Dir)", |env| {
-            call_picker(
-                env,
-                "grep",
-                Some(tbl!({
-                    cwd = get_root(env)?;
-                })),
-            )
-        });
-
-        keymap.set(["x"], "<leader>sg", "Grep Selection (cwd)", |env| {
-            call_picker(
-                env,
-                "grep_word",
-                Some(tbl!({
-                    cwd = get_cwd(env)?;
-                })),
-            )
-        });
-
-        keymap.set(["x"], "<leader>sG", "Grep Selection (Root Dir)", |env| {
-            call_picker(
-                env,
-                "grep_word",
-                Some(tbl!({
-                    cwd = get_root(env)?;
-                })),
-            )
-        });
-
-        keymap.set(["n"], "<leader>ca", "Code Action", |env| {
-            call_picker(env, "code_action", LuaNil)
-        });
-
-        keymap.set(["n"], "gd", "Goto Definition", |env| {
-            call_picker(env, "lsp_definitions", LuaNil)
-        });
-
-        keymap.set(["n"], "gi", "Goto Implementations", |env| {
-            call_picker(env, "lsp_implementations", LuaNil)
-        });
-
-        keymap.set(["n"], "gr", "Goto References", |env| {
-            call_picker(env, "lsp_references", LuaNil)
-        });
-
-        keymap.set_base(
-            ["v"],
-            "<C-c>",
-            "\"+y",
-            tbl!({
-                desc = "Copy Selection";
-            }),
+        self.set_keymap(
+            "n",
+            "<leader>sx",
+            self.create_cb(|conf, ()| call_picker(conf, "resume", LuaNil)),
+            KeymapOpts::empty().with_desc("Resume Picker").finish(),
         );
 
-        keymap.set_base(
-            ["t"],
+        self.set_keymap(
+            "n",
+            "<leader>fP",
+            self.create_cb(|env, ()| call_picker(env, "pickers", LuaNil)),
+            KeymapOpts::empty().with_desc("Find Picker").finish(),
+        );
+
+        self.set_keymap(
+            "n",
+            "<leader>ff",
+            self.create_cb(|conf, ()| {
+                call_picker(
+                    conf,
+                    "files",
+                    Some(tbl!({
+                        cwd = get_cwd(conf)?;
+                    })),
+                )
+            }),
+            KeymapOpts::empty().with_desc("Find Files (cwd)").finish(),
+        );
+
+        self.set_keymap(
+            "n",
+            "<leader>fF",
+            self.create_cb(|env, ()| {
+                call_picker(
+                    env,
+                    "files",
+                    Some(tbl!({
+                        cwd = get_root(env)?;
+                    })),
+                )
+            }),
+            KeymapOpts::empty()
+                .with_desc("Find Files (Root Dir)")
+                .finish(),
+        );
+
+        self.set_keymap(
+            "n",
+            "<leader>sg",
+            self.create_cb(|env, ()| {
+                call_picker(
+                    env,
+                    "grep",
+                    Some(tbl!({
+                        cwd = get_cwd(env)?;
+                    })),
+                )
+            }),
+            KeymapOpts::empty().with_desc("Grep (cwd)").finish(),
+        );
+
+        self.set_keymap(
+            "n",
+            "<leader>sG",
+            self.create_cb(|env, ()| {
+                call_picker(
+                    env,
+                    "grep",
+                    Some(tbl!({
+                        cwd = get_root(env)?;
+                    })),
+                )
+            }),
+            KeymapOpts::empty().with_desc("Grep (Root Dir)").finish(),
+        );
+
+        self.set_keymap(
+            "x",
+            "<leader>sg",
+            self.create_cb(|env, ()| {
+                call_picker(
+                    env,
+                    "grep_word",
+                    Some(tbl!({
+                        cwd = get_cwd(env)?;
+                    })),
+                )
+            }),
+            KeymapOpts::empty()
+                .with_desc("Grep Selection (cwd)")
+                .finish(),
+        );
+
+        self.set_keymap(
+            "x",
+            "<leader>sG",
+            self.create_cb(|env, ()| {
+                call_picker(
+                    env,
+                    "grep_word",
+                    Some(tbl!({
+                        cwd = get_root(env)?;
+                    })),
+                )
+            }),
+            KeymapOpts::empty()
+                .with_desc("Grep Selection (Root Dir)")
+                .finish(),
+        );
+
+        self.set_keymap(
+            "n",
+            "<leader>ca",
+            self.create_cb(|env, ()| call_picker(env, "code_action", LuaNil)),
+            KeymapOpts::empty().with_desc("Code Action").finish(),
+        );
+
+        self.set_keymap(
+            "n",
+            "gd",
+            self.create_cb(|env, ()| call_picker(env, "lsp_definitions", LuaNil)),
+            KeymapOpts::empty().with_desc("Goto Definition").finish(),
+        );
+
+        self.set_keymap(
+            "n",
+            "gi",
+            self.create_cb(|env, ()| call_picker(env, "lsp_implementations", LuaNil)),
+            KeymapOpts::empty()
+                .with_desc("Goto Implementations")
+                .finish(),
+        );
+
+        self.set_keymap(
+            "n",
+            "gr",
+            self.create_cb(|env, ()| call_picker(env, "lsp_references", LuaNil)),
+            KeymapOpts::empty().with_desc("Goto References").finish(),
+        );
+
+        self.set_keymap(
+            "v",
+            "<C-c>",
+            "\"+y",
+            KeymapOpts::empty().with_desc("Copy Selection").finish(),
+        );
+
+        self.set_keymap(
+            "t",
             "<ESC><ESC>",
             "<C-\\><C-n>",
-            tbl!({
-                desc = "Exit Terminal mode";
-            }),
+            KeymapOpts::empty().with_desc("Exit Terminal mode").finish(),
         );
     }
 }

@@ -16,7 +16,7 @@ impl<T: mlua::FromLua> CachedReq<T> {
         }
         std::hint::cold_path();
 
-        let it = env.call_require(name)?;
+        let it = env.conf().call_require(name)?;
         Ok(self.0.get_or_init(|| it))
     }
 }
@@ -69,7 +69,7 @@ impl<T: mlua::FromLua> CachedSetup<T> {
         Ok(
             match &mut *state.lock().unwrap_or_else(|pe| pe.into_inner()) {
                 state @ SetupState::Ready(_) => {
-                    let module: T = env.call_require(name)?;
+                    let module: T = env.conf().call_require(name)?;
                     let SetupState::Ready(cb) = std::mem::replace(state, SetupState::Done) else {
                         unreachable!()
                     };
@@ -94,18 +94,24 @@ pub struct ReqCache {
     pub treesitter: CachedReq<Treesitter>,
 }
 
-impl Nvim {
+impl NvimConf<'_> {
     pub fn req_snacks(&self) -> Result<&Snacks> {
-        self.req_cache.snacks.require("snacks", self)
+        self.env().req_cache.snacks.require("snacks", self.env())
     }
     pub fn req_persistence(&self) -> Result<&Persistence> {
-        self.req_cache.persistence.require("persistence", self)
+        self.env()
+            .req_cache
+            .persistence
+            .require("persistence", self.env())
     }
     pub fn req_conform(&self) -> Result<&Conform> {
-        self.req_cache.conform.require("conform", self)
+        self.env().req_cache.conform.require("conform", self.env())
     }
     pub fn req_treesitter(&self) -> Result<&Treesitter> {
-        self.req_cache.treesitter.require("nvim-treesitter", self)
+        self.env()
+            .req_cache
+            .treesitter
+            .require("nvim-treesitter", self.env())
     }
 }
 

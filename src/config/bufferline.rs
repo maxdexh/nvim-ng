@@ -1,4 +1,4 @@
-use crate::{plugins::GenericPlugin, prelude::*};
+use crate::{env::vim::keymap::KeymapOpts, plugins::GenericPlugin, prelude::*};
 
 impl NvimConf<'_> {
     pub fn load_bufferline(&self) {
@@ -20,15 +20,25 @@ impl NvimConf<'_> {
         })
         .ok_or_notify(env);
 
-        self.keymap().set(["n"], "L", "Next Buffer", |env| {
-            env.vim().run_cmd("BufferLineCycleNext");
-            Ok(())
-        });
+        self.set_keymap(
+            "n",
+            "L",
+            self.create_cb(|conf, ()| {
+                conf.run_cmd("BufferLineCycleNext");
+                Ok(())
+            }),
+            KeymapOpts::empty().with_desc("Next Buffer").finish(),
+        );
 
-        self.keymap().set(["n"], "H", "Prev Buffer", |env| {
-            env.vim().run_cmd("BufferLineCyclePrev");
-            Ok(())
-        });
+        self.set_keymap(
+            "n",
+            "H",
+            self.create_cb(|conf, ()| {
+                conf.run_cmd("BufferLineCyclePrev");
+                Ok(())
+            }),
+            KeymapOpts::empty().with_desc("Prev Buffer").finish(),
+        );
     }
 
     fn bufferline_opts(&self) -> impl LuaSub<LuaDict<LuaVal>> {

@@ -1,9 +1,6 @@
 mod plugin;
 
-use crate::{
-    prelude::*,
-    utils::{nvim_proxy, opts_struct},
-};
+use crate::prelude::*;
 
 pub mod vim;
 
@@ -80,74 +77,32 @@ impl Nvim {
                 .map(LuaCallable::from_mlua_func),
         )
     }
-    pub fn create_cb<A: FromLuaMultiTyped>(
-        &self,
-        f: impl Fn(&Nvim, A) -> Result<()> + 'static,
-    ) -> LuaDeferErr<LuaCallable<A, ()>> {
-        self.create_func(move |env, args| {
-            f(env, args).ok_or_notify(env);
-            Ok(())
-        })
-    }
-    pub fn create_cb_once<A: FromLuaMultiTyped>(
-        &self,
-        f: impl FnOnce(&Nvim, A) -> Result<()> + 'static,
-    ) -> LuaDeferErr<LuaCallable<A, ()>> {
-        let func = std::sync::Mutex::new(Some(f));
-        self.create_cb(move |env, args| {
-            func.try_lock()
-                .or_else(|err| match err {
-                    std::sync::TryLockError::Poisoned(pe) => Ok(pe.into_inner()),
-                    std::sync::TryLockError::WouldBlock => Err(()),
-                })
-                .ok()
-                .and_then(|mut it| it.take())
-                .ok_or_else(|| LuaError::runtime("callback can only be called once"))
-                .and_then(|f| f(env, args))
-        })
-    }
-    pub fn call_require<T: mlua::FromLua>(&self, s: &str) -> Result<T> {
-        self.globals.require()?.call_any_ret(s)
+}
+impl AsRef<Nvim> for Nvim {
+    fn as_ref(&self) -> &Nvim {
+        self
     }
 }
 
-// TODO: Mandatory opts
-opts_struct!(
-    AutoCmdOptsAny,
-    AutoCmdOpts,
-    [
-        (once, O, bool, with_once),
-        (pattern, P, LuaString, with_pattern)
-    ]
-);
+#[derive(Debug, Clone, Copy)]
+pub struct NvimConf<'a>(&'a crate::prelude::Nvim);
 
-nvim_proxy!(VimProxy, vim);
-impl VimProxy<'_> {
-    pub fn add_autocmd(
-        &self,
-        event: &str,
-        opts: impl AutoCmdOptsAny,
-        callback: impl LuaSub<LuaCallable<(), ()>>,
-    ) -> bool {
-        do_try(|| {
-            let opts = opts.into_table(self.lua())?;
-
-            opts.set("callback", callback)?;
-            self.env()
-                .globals
-                .vim()?
-                .api()?
-                .nvim_create_autocmd()?
-                .call((event, crate::utils::downcast_mlua_map(opts)))
-        })
-        .ok_or_notify(self.env())
-        .is_some()
-    }
-    pub fn run_cmd(&self, cmd: impl LuaSub<LuaString>) -> bool {
-        do_try(|| self.env().globals.vim()?.cmd()?.call(cmd))
-            .ok_or_notify(self.env())
-            .is_some()
+impl crate::prelude::Nvim {
+    pub fn conf(&self) -> NvimConf<'_> {
+        NvimConf(self)
     }
 }
-
-nvim_proxy!(NvimConf, config);
+impl NvimConf<'_> {
+    pub fn env(&self) -> &crate::prelude::Nvim {
+        self.0
+    }
+    #[allow(dead_code)]
+    pub fn lua(&self) -> &Lua {
+        &self.env().lua
+    }
+}
+impl AsRef<Nvim> for NvimConf<'_> {
+    fn as_ref(&self) -> &Nvim {
+        self.env()
+    }
+}

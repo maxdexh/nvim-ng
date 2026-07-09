@@ -16,7 +16,7 @@ impl NvimConf<'_> {
         })
         .ok_or_notify(env);
 
-        env.call_require::<GenericPlugin>("blink.cmp")
+        self.call_require::<GenericPlugin>("blink.cmp")
             .and_then(|it| it.setup()?.call(self.cmp_opts()))
             .ok_or_notify(env);
     }
