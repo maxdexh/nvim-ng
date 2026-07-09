@@ -170,7 +170,7 @@ macro_rules! opts_struct {
         impl $gname {
             pub fn empty() -> Self {
                 Self {
-                    $($field: crate::lua::LuaNil::None),*
+                    $($field: crate::lua::LuaNil),*
                 }
             }
         }

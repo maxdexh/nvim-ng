@@ -14,9 +14,25 @@ pub type LuaNum = mlua::Number;
 pub type LuaInt = mlua::Integer;
 pub type LuaUnion<L, R> = mlua::Either<L, R>;
 
-pub type LuaNil = Option<LuaBottom>;
-#[expect(non_upper_case_globals)]
-pub const LuaNil: LuaNil = LuaNil::None;
+#[derive(Clone, Copy, Default)]
+pub struct LuaNil;
+impl IntoLua for LuaNil {
+    fn into_lua(self, _: &Lua) -> mlua::Result<mlua::Value> {
+        Ok(mlua::Value::Nil)
+    }
+}
+impl FromLua for LuaNil {
+    fn from_lua(value: mlua::Value, _: &Lua) -> mlua::Result<Self> {
+        match value {
+            mlua::Value::Nil => todo!(),
+            _ => Err(LuaError::FromLuaConversionError {
+                from: value.type_name(),
+                to: std::any::type_name::<Self>().into(),
+                message: None,
+            }),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum LuaBottom {}
@@ -30,8 +46,8 @@ impl FromLua for LuaBottom {
     fn from_lua(value: mlua::Value, _: &Lua) -> mlua::Result<Self> {
         Err(LuaError::FromLuaConversionError {
             from: value.type_name(),
-            to: "Bottom".into(),
-            message: Some("Conversion to bottom type always fails".into()),
+            to: std::any::type_name::<Self>().into(),
+            message: None,
         })
     }
 }
