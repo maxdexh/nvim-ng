@@ -4,9 +4,9 @@ impl NvimConf<'_> {
     pub fn load_rust_lang(&self) {
         let env = self.env();
         let vim = env.vim();
-        vim.pack().add(
+        vim.pack().add_one(
             "https://github.com/mrcjkb/rustaceanvim",
-            PackOpts::empty().with_version(vim.version().range("^9")),
+            //PackOpts::empty().with_version(vim.version().range("^9")),
         );
 
         let ra_opts = tbl!({

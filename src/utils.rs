@@ -259,7 +259,7 @@ macro_rules! _proxy_impl {
 }
 pub(crate) use _proxy_impl;
 
-macro_rules! tbl_proxy {
+macro_rules! from_tbl_proxy {
     ({
         struct $name:ident {
             $($field:ident: $fieldty:ty),* $(,)?
@@ -279,4 +279,4 @@ macro_rules! tbl_proxy {
         )*}
     };
 }
-pub(crate) use tbl_proxy;
+pub(crate) use from_tbl_proxy;

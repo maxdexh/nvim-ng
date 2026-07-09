@@ -3,10 +3,9 @@ use crate::{plugins::GenericPlugin, prelude::*};
 impl NvimConf<'_> {
     pub fn load_colorscheme(&self) {
         let env = self.env();
-        env.vim().pack().add(
-            "https://github.com/nvim-treesitter/nvim-treesitter",
-            PackOpts::empty().with_version("main"),
-        );
+        env.vim()
+            .pack()
+            .add_one("https://github.com/nvim-treesitter/nvim-treesitter");
 
         env.req_treesitter()
             .and_then(|it| it.setup()?.call(tbl!({})))
@@ -14,7 +13,7 @@ impl NvimConf<'_> {
 
         env.vim()
             .pack()
-            .add("https://github.com/catppuccin/nvim", PackOpts::empty());
+            .add_one("https://github.com/catppuccin/nvim");
 
         env.call_require::<GenericPlugin>("catppuccin")
             .and_then(|it| {

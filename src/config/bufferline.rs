@@ -3,15 +3,13 @@ use crate::{plugins::GenericPlugin, prelude::*};
 impl NvimConf<'_> {
     pub fn load_bufferline(&self) {
         let env = self.env();
-        env.vim().pack().add(
-            "https://github.com/nvim-tree/nvim-web-devicons",
-            PackOpts::empty(),
-        );
+        env.vim()
+            .pack()
+            .add_one("https://github.com/nvim-tree/nvim-web-devicons");
 
-        env.vim().pack().add(
-            "https://github.com/akinsho/bufferline.nvim",
-            PackOpts::empty(),
-        );
+        env.vim()
+            .pack()
+            .add_one("https://github.com/akinsho/bufferline.nvim");
 
         do_try(|| {
             env.globals

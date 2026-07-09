@@ -5,67 +5,19 @@ use crate::{
     utils::{nvim_proxy, nvim_subproxy, opts_struct},
 };
 
-mod proxy {
-    use crate::prelude::*;
-    use crate::utils::tbl_proxy;
+pub mod vim;
 
-    tbl_proxy!({
-        struct VimDiagnostic {
-            config: LuaCallable<LuaTableAny, ()>,
-        }
-    });
-    tbl_proxy!({
-        struct VimPack {
-            add: LuaCallable<LuaTableAny, ()>,
-        }
-    });
-    tbl_proxy!({
-        struct VimKeymap {
-            set: LuaCallable<(LuaTableAny, LuaString, LuaVal, LuaDict<LuaVal>), ()>,
-        }
-    });
-    tbl_proxy!({
-        struct VimUV {
-            cwd: LuaCallable<(), LuaString>,
-        }
-    });
-    tbl_proxy!({
-        struct VimApi {
-            nvim_create_autocmd: LuaCallable<(LuaString, LuaDict<LuaVal>), ()>,
-        }
-    });
-    tbl_proxy!({
-        struct VimVersion {
-            range: LuaCallable<LuaString, LuaVal>,
-        }
-    });
-    tbl_proxy!({
-        struct Vim {
-            opt: LuaDictMut<LuaVal>,
-            opt_local: LuaDictMut<LuaVal>,
-            g: LuaDictMut<LuaVal>,
-            uv: VimUV,
-            pack: VimPack,
-            keymap: VimKeymap,
-            diagnostic: VimDiagnostic,
-            notify: LuaCallable<(LuaString, LuaInt), ()>,
-            cmd: LuaCallable<LuaString, ()>,
-            version: VimVersion,
-            api: VimApi,
-        }
-    });
-    tbl_proxy!({
-        struct Globals {
-            vim: Vim,
-            require: LuaCallable<LuaString, LuaVal>,
-        }
-    });
-}
+crate::utils::from_tbl_proxy!({
+    struct Globals {
+        vim: vim::Vim,
+        require: LuaCallable<LuaString, LuaVal>,
+    }
+});
 
 #[derive(Clone, Debug)]
 pub struct Nvim {
     pub lua: Lua,
-    pub globals: proxy::Globals,
+    pub globals: Globals,
     pub req_cache: crate::plugins::ReqCache,
 }
 impl Nvim {
@@ -178,13 +130,9 @@ impl VimVersionProxy<'_> {
 nvim_subproxy!(VimPackProxy, pack, VimProxy);
 opts_struct!(PackOptsAny, PackOpts, [(version, V, LuaVal, with_version)]);
 impl VimPackProxy<'_> {
-    pub fn add(&self, url: &str, opts: impl PackOptsAny) -> bool {
+    pub fn add_one(&self, opts: impl LuaSub<LuaUnion<LuaDict<LuaVal>, LuaString>>) -> bool {
         let env = self.env();
-        opts.into_table(self.lua())
-            .and_then(|opts| {
-                opts.set("src", url)?;
-                env.globals.vim()?.pack()?.add()?.call([opts])
-            })
+        do_try(|| env.globals.vim()?.pack()?.add()?.call([opts]))
             .ok_or_notify(env)
             .is_some()
     }

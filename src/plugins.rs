@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex, OnceLock};
 
-use crate::{prelude::*, utils::tbl_proxy};
+use crate::{prelude::*, utils::from_tbl_proxy};
 
 #[derive(Debug, Clone)]
 pub struct CachedReq<T>(Arc<OnceLock<T>>);
@@ -106,13 +106,13 @@ impl Nvim {
     }
 }
 
-tbl_proxy!({
+from_tbl_proxy!({
     struct GenericPlugin {
         setup: LuaCallable<LuaDict<LuaVal>, ()>,
     }
 });
 
-tbl_proxy!({
+from_tbl_proxy!({
     struct Snacks {
         setup: LuaCallable<LuaDict<LuaVal>, ()>,
         git: SnacksGit,
@@ -120,32 +120,32 @@ tbl_proxy!({
         picker: LuaDict<LuaCallable<Option<LuaDict<LuaVal>>, ()>>,
     }
 });
-tbl_proxy!({
+from_tbl_proxy!({
     struct SnacksDash {
         pick: LuaCallable<LuaString, ()>,
     }
 });
-tbl_proxy!({
+from_tbl_proxy!({
     struct SnacksGit {
         get_root: LuaCallable<(), Option<LuaString>>,
     }
 });
 
-tbl_proxy!({
+from_tbl_proxy!({
     struct Persistence {
         setup: LuaCallable<LuaTableAny, ()>,
         load: LuaCallable<LuaTableAny, ()>,
     }
 });
 
-tbl_proxy!({
+from_tbl_proxy!({
     struct Conform {
         setup: LuaCallable<LuaMapMut<LuaString, LuaVal>, ()>,
         formatters_by_ft: LuaTableAny,
     }
 });
 
-tbl_proxy!({
+from_tbl_proxy!({
     struct Treesitter {
         setup: LuaCallable<LuaTableAny, ()>,
         install: LuaCallable<LuaSeqMut<LuaString>, ()>,

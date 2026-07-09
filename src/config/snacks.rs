@@ -5,7 +5,7 @@ impl NvimConf<'_> {
         let env = self.env();
         env.vim()
             .pack()
-            .add("https://github.com/folke/snacks.nvim", PackOpts::empty());
+            .add_one("https://github.com/folke/snacks.nvim");
 
         let Some(snacks) = env.req_snacks().ok_or_notify(env) else {
             return;

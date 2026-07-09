@@ -3,14 +3,14 @@ use crate::{plugins::GenericPlugin, prelude::*};
 impl NvimConf<'_> {
     pub fn load_completions(&self) {
         let env = self.env();
-        env.vim().pack().add(
+        env.vim().pack().add_one(
             "https://github.com/Saghen/blink.cmp",
-            PackOpts::empty().with_version(env.vim().version().range("1.*")),
+            //PackOpts::empty().with_version(env.vim().version().range("1.*")),
         );
 
         env.vim()
             .pack()
-            .add("https://github.com/L3MON4D3/LuaSnip", PackOpts::empty());
+            .add_one("https://github.com/L3MON4D3/LuaSnip");
 
         env.call_require::<GenericPlugin>("blink.cmp")
             .and_then(|it| it.setup()?.call(self.cmp_opts()))
