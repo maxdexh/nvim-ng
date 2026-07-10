@@ -47,10 +47,9 @@ pub fn lua_notify_err(lua: Option<&Lua>, err: impl std::fmt::Display) {
         .map_or_else(mlua::Either::Left, mlua::Either::Right);
 
     () = do_try(|| {
-        lua.convert::<Globals>(lua.globals())?
-            .vim()?
-            .notify()?
-            .call((msg.clone(), 4i64)) // 4 = error
+        let vim = lua.convert::<Globals>(lua.globals())?.vim()?;
+        let msg = msg.as_ref().map_left(std::ops::Deref::deref);
+        vim.notify()?.call((msg, vim.log()?.levels()?.ERROR()?))
     })
     .unwrap_or_else(|notify_err| {
         eprintln!("Failed to notify: {notify_err}\n");

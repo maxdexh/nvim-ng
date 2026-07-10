@@ -138,9 +138,9 @@ mod into_impls {
             }
         };
     }
-    macro_rules! mk_defer_defaults {
-        ($($name:ident$(<$($P:ident),* $(,)?>)?),* $(,)?) => {
-            macro_rules! defer_defaults {
+    macro_rules! mk_default_macros {
+        (dollar!($dollar:tt), $($name:ident$(<$($P:ident),* $(,)?>)?),* $(,)?) => {
+            macro_rules! emit_default_item {
                 $(($name, $postfix_handler:ident) => {
                     add_bounds! {{
                         type $name$(<$($P),*>)? = $postfix_handler!($name$(<$($P),*>)?);
@@ -150,9 +150,23 @@ mod into_impls {
                     compile_error! { concat!("defer_defaults: Unknown item ", stringify!($t)) }
                 };
             }
+            macro_rules! mk_defaults_except {
+                ($out_default_items_mac:ident, [$dollar($item:ident),* $dollar(,)?], $default_ty_mac:ident) => {
+                    macro_rules! $out_default_items_mac {
+                        () => {
+                            $( $out_default_items_mac!(@sel $name); )*
+                        };
+                        $dollar( (@sel $item) => {}; )*
+                        (@sel $other:ident) => {
+                            emit_default_item!($other, $default_ty_mac);
+                        }
+                    }
+                };
+            }
         };
     }
-    mk_defer_defaults![
+    mk_default_macros![
+        dollar!($),
         IsNum,
         IsInt,
         IsStr,
@@ -167,39 +181,7 @@ mod into_impls {
         IsCallableWith<_A, _R>,
         IsStruct<_Fs>,
     ];
-    macro_rules! mk_defaults_except {
-        ($mac:ident, [$($item:ident),* $(,)?], $default_mac:ident) => {
-            macro_rules! $mac {
-                () => {
-                    $mac!(@sel IsNum);
-                    $mac!(@sel IsInt);
-                    $mac!(@sel IsStr);
-                    $mac!(@sel IsFunc);
-                    $mac!(@sel IsBool);
-                    $mac!(@sel IsNil);
-                    $mac!(@sel IsUnion);
-                    $mac!(@sel IsTableMapConst);
-                    $mac!(@sel IsTableMapMut);
-                    $mac!(@sel IsTableSeqConst);
-                    $mac!(@sel IsTableSeqMut);
-                    $mac!(@sel IsCallableWith);
-                    $mac!(@sel IsStruct);
-                };
-                $( (@sel $item) => {}; )*
-                (@sel $other:ident) => {
-                    defer_defaults!($other, $default_mac);
-                }
-            }
-        };
-    }
-    macro_rules! general_defaults {
-        (IsUnion<$L:ident, $R:ident>) => {
-            Or<IsInto<Self, $L>, IsInto<Self, $R>>
-        };
-        ($($postfix:tt)*) => {
-            crate::typing::logic::False
-        };
-    }
+
     macro_rules! impl_into {
         ({
             $(#[params($($g:tt)*)])?
@@ -222,6 +204,27 @@ mod into_impls {
             };
         };
     }
+    macro_rules! general_defaults {
+        (IsUnion<$L:ident, $R:ident>) => {
+            Or<IsInto<Self, $L>, IsInto<Self, $R>>
+        };
+        ($($postfix:tt)*) => {
+            crate::typing::logic::False
+        };
+    }
+    macro_rules! mk_defer_to_ty {
+        ($out_mac:ident, $defer:ty) => {
+            mk_defer_to_ty! { @[$], $out_mac, $defer }
+        };
+        (@[$dollar:tt], $out_mac:ident, $defer:ty) => {
+            macro_rules! $out_mac {
+                ($dollar($postfix:tt)*) => {
+                    <$defer as crate::typing::IntoLuaTyped>::$dollar($postfix)*
+                };
+            }
+        };
+    }
+
     impl_into!({
         impl bool {}
 
@@ -249,21 +252,17 @@ mod into_impls {
         type IsStr = True;
     });
     const _: () = {
-        macro_rules! default_defer_str {
-            ($($postfix:tt)*) => {
-                <crate::lua::LuaString as IntoLuaTyped>::$($postfix)*
-            };
-        }
+        mk_defer_to_ty!(defer_str, crate::lua::LuaString);
         macro_rules! lua_strs {
             ($($t:ty),*) => {$(
                 impl_into!({
                     impl $t {}
 
-                    default!(default_defer_str);
+                    default!(defer_str);
                 });
             )*};
         }
-        lua_strs!(&str, String);
+        lua_strs!(&str, String, &crate::lua::LuaString);
     };
     impl_into!({
         impl mlua::Function {}
@@ -300,11 +299,10 @@ mod into_impls {
     }
     ints![i8, u8, i16, u16, i32, u32, i64, u64, isize, usize];
     const _: () = {
-        macro_rules! defer_union_T_nil {
-            ($($postfix:tt)*) => {
-                <crate::lua::LuaUnion<T, crate::lua::LuaNil> as IntoLuaTyped>::$($postfix)*
-            };
-        }
+        mk_defer_to_ty!(
+            defer_union_T_nil,
+            crate::lua::LuaUnion::<T, crate::lua::LuaNil>
+        );
         impl_into!({
             #[params(T: IntoLuaTyped)]
             impl Option<T> {}
@@ -344,16 +342,12 @@ mod into_impls {
         type IsTableMapMut<K, V> = And<IsInto<crate::lua::LuaInt, K>, IsInto<T, V>>;
     });
     const _: () = {
-        macro_rules! defer_into_table_T {
-            ($($postfix:tt)*) => {
-                <crate::lua::LuaSeqOwned<T> as IntoLuaTyped>::$($postfix)*
-            };
-        }
+        mk_defer_to_ty!(defer_table_T, crate::lua::LuaSeqOwned::<T>);
         impl_into!({
             #[params(T: IntoLuaTyped, const N: usize)]
             impl [T; N] {}
 
-            default!(defer_into_table_T);
+            default!(defer_table_T);
         });
     };
     impl_into!({
@@ -410,22 +404,18 @@ mod into_impls {
         });
     };
     const _: () = {
-        macro_rules! defer_to_T {
-            ($($postfix:tt)*) => {
-                T::$($postfix)*
-            };
-        }
+        mk_defer_to_ty!(defer_T, T);
         impl_into!({
             #[params(T: IntoLuaTyped)]
             impl crate::lua::LuaDeferErr<T> {}
 
-            default!(defer_to_T);
+            default!(defer_T);
         });
         impl_into!({
             #[params(T: IntoLuaTyped, F: FnOnce(&mlua::Lua) -> mlua::Result<T>)]
             impl crate::lua::LuaDefer<F> {}
 
-            default!(defer_to_T);
+            default!(defer_T);
         });
     };
     const _: () = {

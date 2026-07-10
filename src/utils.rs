@@ -244,18 +244,23 @@ pub(crate) use mk_builder;
 
 macro_rules! from_tbl_proxy {
     ({
-        struct $name:ident {
-            $($field:ident: $fieldty:ty),* $(,)?
-        }
+        $(#[$meta:meta])*
+        struct $name:ident {$(
+            $(#[$fmeta:meta])*
+            $field:ident: $fieldty:ty
+        ),* $(,)?}
     }) => {
         #[derive(Clone, Debug)]
+        $(#[$meta])*
         pub struct $name { pub table: mlua::Table }
         impl mlua::FromLua for $name {
-            fn from_lua(value: mlua::Value, lua: &Lua) -> mlua::Result<Self> {
+            fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
                 mlua::FromLua::from_lua(value, lua).map(|table| Self { table })
             }
         }
+        #[allow(non_snake_case)]
         impl $name {$(
+            $(#[$fmeta])*
             pub fn $field(&self) -> mlua::Result<$fieldty> {
                 self.table.get(stringify!($field))
             }

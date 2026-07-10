@@ -3,6 +3,7 @@ use crate::prelude::*;
 pub mod api;
 pub mod diagnostic;
 pub mod keymap;
+pub mod log;
 pub mod pack;
 pub mod uv;
 pub mod version;
@@ -20,5 +21,6 @@ crate::utils::from_tbl_proxy!({
         cmd: LuaCallable<LuaString, ()>,
         version: version::VimVersion,
         api: api::VimApi,
+        log: log::VimLog,
     }
 });
