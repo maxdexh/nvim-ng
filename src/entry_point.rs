@@ -23,13 +23,15 @@ thread_local! {
 
 fn set_panic_hook() {
     std::panic::set_hook(Box::new(move |info| {
-        let msg = info.payload_as_str().unwrap_or("panic of non-string type");
+        let msg = info
+            .payload_as_str()
+            .unwrap_or("<panic msg of non-string type>");
 
         crate::env::lua_notify_err(
             THREAD_LUA
                 .with(|it| it.get().and_then(|it| it.try_upgrade()))
                 .as_ref(),
-            msg,
+            format_args!("PANIC:\n{msg}"),
         );
     }));
 }

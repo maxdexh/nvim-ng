@@ -137,12 +137,66 @@ impl NvimConf<'_> {
             }),
         );
 
+        if let Some(lsp_buf) = do_try(|| self.env().globals.vim()?.lsp()?.buf()).ok_or_notify(self)
+        {
+            self.set_keymap(
+                "n",
+                "<leader>ca",
+                LuaDeferErr(lsp_buf.code_action()),
+                mk_builder!(KeymapOpts, {
+                    desc = "Code Action";
+                }),
+            );
+            self.set_keymap(
+                "n",
+                "<leader>cr",
+                LuaDeferErr(lsp_buf.rename()),
+                mk_builder!(KeymapOpts, {
+                    desc = "Rename Symbol";
+                }),
+            );
+            self.set_keymap(
+                "n",
+                "K",
+                LuaDeferErr(lsp_buf.hover()),
+                mk_builder!(KeymapOpts, {
+                    desc = "Open Symbol Hover";
+                }),
+            );
+            self.set_keymap(
+                "i",
+                "<C-h>",
+                LuaDeferErr(lsp_buf.signature_help()),
+                mk_builder!(KeymapOpts, {
+                    desc = "Signature Help";
+                }),
+            );
+        }
         self.set_keymap(
             "n",
-            "<leader>ca",
-            self.create_cb(|env, ()| call_picker(env, "code_action", LuaNil)),
+            "<leader>xc",
+            LuaDeferErr(do_try(|| {
+                self.env().globals.vim()?.diagnostic()?.open_float()
+            })),
             mk_builder!(KeymapOpts, {
-                desc = "Code Action";
+                desc = "Show Diagnostic";
+            }),
+        );
+
+        self.set_keymap(
+            "n",
+            "<leader>xx",
+            self.create_cb(|env, ()| call_picker(env, "diagnostics", LuaNil)),
+            mk_builder!(KeymapOpts, {
+                desc = "Diagnostics";
+            }),
+        );
+        self.set_keymap(
+            "n",
+            "<leader>xX",
+            self.create_cb(|env, ()| call_picker(env, "diagnostics_buffer", LuaNil)),
+            mk_builder!(KeymapOpts, {
+                desc = "Diagnostics (Buffer)";
             }),
         );
 

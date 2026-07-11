@@ -52,8 +52,10 @@ impl NvimConf<'_> {
         let cb = self
             .create_cb_once(|conf, ()| conf.schedule(f))
             .into_result()?;
+
         let opts = mk_builder!(AutoCmdOpts, {
             callback = cb;
+            once = true;
         });
 
         self.env()

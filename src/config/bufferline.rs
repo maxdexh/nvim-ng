@@ -7,16 +7,13 @@ impl NvimConf<'_> {
             "https://github.com/akinsho/bufferline.nvim",
         ]);
 
-        self.setup_plugin_now("bufferline", self.bufferline_opts())
+        self.on_very_lazy(|conf| conf.setup_plugin_now("bufferline", conf.bufferline_opts()))
             .ok_or_notify(self);
 
         self.set_keymap(
             "n",
             "L",
-            self.create_cb(|conf, ()| {
-                conf.run_cmd("BufferLineCycleNext");
-                Ok(())
-            }),
+            "<CMD>BufferLineCycleNext<Enter>",
             mk_builder!(KeymapOpts, {
                 desc = "Next Buffer";
             }),
@@ -25,10 +22,7 @@ impl NvimConf<'_> {
         self.set_keymap(
             "n",
             "H",
-            self.create_cb(|conf, ()| {
-                conf.run_cmd("BufferLineCyclePrev");
-                Ok(())
-            }),
+            "<CMD>BufferLineCyclePrev<Enter>",
             mk_builder!(KeymapOpts, {
                 desc = "Prev Buffer";
             }),

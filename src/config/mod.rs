@@ -12,5 +12,6 @@ mod options;
 mod persistence;
 mod snacks;
 
+mod noice;
 mod treesitter;
 mod whichkey;

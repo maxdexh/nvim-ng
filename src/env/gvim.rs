@@ -4,6 +4,7 @@ pub mod api;
 pub mod diagnostic;
 pub mod keymap;
 pub mod log;
+pub mod lsp;
 pub mod pack;
 pub mod uv;
 pub mod version;
@@ -22,6 +23,7 @@ crate::utils::from_tbl_proxy!({
         version: version::VimVersion,
         api: api::VimApi,
         log: log::VimLog,
+        lsp: lsp::VimLsp,
         schedule: LuaCallable<LuaCallable<(), ()>, ()>,
     }
 });

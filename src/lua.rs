@@ -1,8 +1,9 @@
 use mlua::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti};
 
-use crate::prelude::*;
+use crate::{env::lua_notify_err, prelude::*};
 use std::marker::PhantomData;
 
+// FIXME: Migrate to anyhow for backtrace support
 pub type LuaError = mlua::Error;
 pub type Result<T, E = LuaError> = std::result::Result<T, E>;
 
@@ -75,12 +76,13 @@ impl IntoLua for LuaMaybeCallable {
     }
 }
 impl FromLua for LuaMaybeCallable {
-    fn from_lua(value: mlua::Value, _: &Lua) -> mlua::Result<Self> {
+    fn from_lua(value: mlua::Value, lua: &Lua) -> mlua::Result<Self> {
         Ok(match value {
             mlua::Value::Table(table) => Self::Table(table),
             mlua::Value::Function(func) => Self::Func(func),
             mlua::Value::UserData(data) => Self::Data(data),
             _ => {
+                lua_notify_err(Some(lua), std::backtrace::Backtrace::force_capture());
                 return Err(LuaError::FromLuaConversionError {
                     from: value.type_name(),
                     to: std::any::type_name::<Self>().into(),

@@ -12,6 +12,7 @@ impl Nvim {
 
         conf.load_treesitter();
         conf.load_colorscheme();
+        conf.load_noice();
 
         conf.load_whichkey();
         conf.load_completions();
