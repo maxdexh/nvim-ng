@@ -13,6 +13,7 @@ impl Nvim {
         conf.load_treesitter();
         conf.load_colorscheme();
 
+        conf.load_whichkey();
         conf.load_completions();
         conf.load_bufferline();
         conf.load_conform();

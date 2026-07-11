@@ -46,6 +46,7 @@ impl Registry {
             }
         }
     }
+    #[allow(dead_code)]
     pub fn register<T: 'static + Send + Sync>(&self, entry: T) {
         self.try_register(entry)
             .unwrap_or_else(|_| panic!("double registration of entry type {:?}", type_name::<T>()))
@@ -58,6 +59,7 @@ impl Registry {
             .get(&TypeId::of::<T>())
             .map(|entry| entry.get_val())
     }
+    #[allow(dead_code)]
     pub fn get<T: 'static + Send + Sync>(&self) -> Arc<T> {
         self.try_get::<T>()
             .unwrap_or_else(|| panic!("missing registration for entry type {:?}", type_name::<T>()))

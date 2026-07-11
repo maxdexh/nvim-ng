@@ -22,5 +22,6 @@ crate::utils::from_tbl_proxy!({
         version: version::VimVersion,
         api: api::VimApi,
         log: log::VimLog,
+        schedule: LuaCallable<LuaCallable<(), ()>, ()>,
     }
 });

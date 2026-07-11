@@ -309,6 +309,11 @@ impl<T: IntoLua, F: FnOnce(&Lua) -> Result<T>> IntoLua for LuaDefer<F> {
 }
 
 pub struct LuaDeferErr<T>(pub Result<T>);
+impl<T> LuaDeferErr<T> {
+    pub fn into_result(self) -> Result<T> {
+        self.0
+    }
+}
 impl<T> IntoLua for LuaDeferErr<T>
 where
     T: IntoLua,

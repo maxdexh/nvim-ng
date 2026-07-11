@@ -44,6 +44,25 @@ impl NvimConf<'_> {
         .ok_or_notify(self.env())
         .is_some()
     }
+    pub fn schedule(&self, f: impl FnOnce(NvimConf) -> Result<()> + 'static) -> Result<()> {
+        let cb = self.create_cb_once(|conf, ()| f(conf)).into_result()?;
+        self.env().globals.vim()?.schedule()?.call(cb)
+    }
+    pub fn on_very_lazy(&self, f: impl FnOnce(NvimConf) -> Result<()> + 'static) -> Result<()> {
+        let cb = self
+            .create_cb_once(|conf, ()| conf.schedule(f))
+            .into_result()?;
+        let opts = mk_builder!(AutoCmdOpts, {
+            callback = cb;
+        });
+
+        self.env()
+            .globals
+            .vim()?
+            .api()?
+            .nvim_create_autocmd()?
+            .call(("UIEnter", opts))
+    }
     pub fn run_cmd(&self, cmd: impl LuaSub<LuaString>) -> bool {
         do_try(|| self.env().globals.vim()?.cmd()?.call(cmd))
             .ok_or_notify(self.env())

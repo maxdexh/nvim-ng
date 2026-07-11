@@ -190,5 +190,14 @@ impl NvimConf<'_> {
                 desc = "Exit Terminal mode";
             }),
         );
+
+        self.set_keymap(
+            "n",
+            "<leader>bd",
+            ":bd<ENTER>",
+            mk_builder!(KeymapOpts, {
+                desc = "Delete buffer and window";
+            }),
+        );
     }
 }
