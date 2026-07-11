@@ -18,5 +18,6 @@ impl Nvim {
         conf.load_nix_lang();
         conf.load_rust_lang();
         conf.load_lua_lang();
+        conf.load_tex_lang();
     }
 }

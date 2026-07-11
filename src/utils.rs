@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{lua::AsLua, prelude::*};
 
 pub fn do_try<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
     f()
@@ -9,48 +9,18 @@ pub type LuaDictMut<V> = LuaMapMut<LuaString, V>;
 
 #[doc(hidden)]
 pub mod __tbl {
-    use crate::lua::{LuaMapOwned, LuaSeqOwned};
+    use crate::lua::LuaDeferImpl;
     use crate::prelude::*;
     use mlua::IntoLua;
 
-    pub struct TableBuilder<K, V>(LuaMapOwned<K, V>);
-    pub fn builder_new(lua: &Lua) -> Result<TableBuilder<LuaBottom, LuaBottom>> {
-        lua.create_table()
-            .map(LuaMapOwned::cast_mlua_table)
-            .map(TableBuilder)
-    }
-    pub trait TableWith<K, V> {
-        type Out;
-        fn __with(self, key: K, val: V) -> Result<Self::Out>;
-    }
-    pub trait TableBuildFinish {
-        type Finish;
-        fn __finish(self) -> Self::Finish;
-    }
-    impl<Key, Val, K: IntoLua, V: IntoLua> TableWith<K, V> for TableBuilder<Key, Val> {
-        type Out = TableBuilder<LuaUnion<Key, K>, LuaUnion<Val, V>>;
-        fn __with(self, key: K, val: V) -> Result<Self::Out> {
-            let table = self.0.into_table_any();
-            table.set(key, val)?;
-            Ok(TableBuilder(LuaMapOwned::cast_mlua_table(table)))
-        }
-    }
-    impl<K, V> TableBuildFinish for TableBuilder<K, V> {
-        type Finish = LuaMapOwned<K, V>;
-        fn __finish(self) -> Self::Finish {
-            self.0
-        }
-    }
-    impl<T: LuaTableSet, K: LuaSub<T::Key>, V: LuaSub<T::Val>> TableWith<K, V> for &T {
-        type Out = Self;
-        fn __with(self, key: K, val: V) -> Result<Self::Out> {
-            self.set(key, val)?;
-            Ok(self)
-        }
-    }
-    impl<T: LuaTableSet> TableBuildFinish for T {
-        type Finish = ();
-        fn __finish(self) -> Self::Finish {}
+    pub fn single_key_val<K: IntoLua, V: IntoLua>(
+        key: K,
+        val: V,
+    ) -> LuaDeferImpl!(LuaMapOwned<K, V>) {
+        lua_defer_val(|lua| {
+            lua.create_table_from([(key, val)])
+                .map(LuaMapOwned::cast_mlua_table)
+        })
     }
 
     pub fn tbl_seq_new(lua: &Lua) -> Result<LuaSeqOwned<LuaBottom>> {
@@ -72,7 +42,20 @@ macro_rules! tbl {
     };
     ({$( $t:tt )*}) => {
         crate::lua::lua_defer_val(|lua| {
+            #[deprecated]
             let out = crate::utils::__tbl::builder_new(lua)?;
+            crate::utils::tbl! { out(out), { $($t)* } }
+        })
+    };
+    (owned, {$( $t:tt )*}) => {
+        crate::utils::tbl! { owned!(crate::lua::LuaString, crate::lua::LuaVal), { $($t)* } }
+    };
+    (owned!($vt:ty), {$( $t:tt )*}) => {
+        crate::utils::tbl! { owned!(crate::lua::LuaString, $vt), { $($t)* } }
+    };
+    (owned!($kt:ty, $vt:ty), {$( $t:tt )*}) => {
+        crate::lua::lua_defer_val(|lua| {
+            let out = crate::lua::LuaMapOwned::<$kt, $vt>::new(lua)?;
             crate::utils::tbl! { out(out), { $($t)* } }
         })
     };
@@ -80,28 +63,26 @@ macro_rules! tbl {
         let out = $table;
         crate::utils::do_try(move || {
             #[allow(unused_imports)]
-            use crate::utils::__tbl::TableWith as _;
-            use crate::utils::__tbl::TableBuildFinish as _;
+            use crate::lua::LuaTableSet as _;
             crate::utils::tbl! { @visit out $($t)* }
+            Ok(out)
         })
     }};
-    (@visit $builder:ident $key_or_field:tt = $val:expr; $($t:tt)*) => {{
-        let $builder = $builder.__with(
+    (@visit $out:ident $key_or_field:tt = $val:expr; $($t:tt)*) => {
+        $out.set(
             crate::utils::tbl!(@key_or_field $key_or_field),
             $val,
         )?;
-        crate::utils::tbl! { @visit $builder $($t)* }
-    }};
-    (@visit $builder:ident $key_or_field:tt$(.$field:ident)+ = $val:expr; $($t:tt)*) => {{
-        let $builder = $builder.__with(
+        crate::utils::tbl! { @visit $out $($t)* }
+    };
+    (@visit $out:ident $key_or_field:tt$(.$field:ident)+ = $val:expr; $($t:tt)*) => {{
+        $out.set(
             crate::utils::tbl!(@key_or_field $key_or_field),
-            crate::utils::tbl!({
-                $($field).+ = $val;
-            }),
+            crate::utils::tbl!(@nest_single_field [$(stringify!($field)),*], $val),
         )?;
-        crate::utils::tbl! { @visit $builder $($t)* }
+        crate::utils::tbl! { @visit $out $($t)* }
     }};
-    (@visit $builder:ident) => { Ok($builder.__finish()) };
+    (@visit $out:ident) => { () };
     (@visit $($t:tt)*) => {
         compile_error! {
             concat!(
@@ -113,6 +94,13 @@ macro_rules! tbl {
     (@key_or_field $field:ident) => { stringify!($field) };
     (@key_or_field $field:literal) => { $field };
     (@key_or_field [$key:expr]) => { $key };
+    (@nest_single_field [$first_field:expr $(,$field:expr)*], $val:expr) => {
+        crate::utils::__tbl::single_key_val(
+            $first_field,
+            crate::utils::tbl!(@nest_single_field [$($field),*], $val),
+        )
+    };
+    (@nest_single_field [], $val:expr) => { $val };
 }
 pub(crate) use tbl;
 
@@ -131,7 +119,7 @@ pub trait ResultExt {
     type Ok;
     type Err;
 
-    fn ok_or_notify(self, env: impl AsRef<Nvim>) -> Option<Self::Ok>
+    fn ok_or_notify(self, lua: impl AsLua) -> Option<Self::Ok>
     where
         Self::Err: Into<LuaError>;
 }
@@ -139,7 +127,7 @@ impl<T, E> ResultExt for std::result::Result<T, E> {
     type Ok = T;
     type Err = E;
 
-    fn ok_or_notify(self, env: impl AsRef<Nvim>) -> Option<T>
+    fn ok_or_notify(self, lua: impl AsLua) -> Option<T>
     where
         E: Into<LuaError>,
     {
@@ -147,7 +135,7 @@ impl<T, E> ResultExt for std::result::Result<T, E> {
         match res {
             Ok(ok) => Some(ok),
             Err(err) => {
-                env.as_ref().notify_err(&err);
+                crate::env::lua_notify_err(Some(lua.as_lua()), err);
                 None
             }
         }
@@ -200,7 +188,7 @@ macro_rules! builder_struct {
                 type Repr = mlua::Table;
             }
             impl<$($field: crate::typing::LuaSub<$fty>),*> $gname<$($field),*> {
-                pub fn _finish(self) -> crate::lua::lua_defer_impl!(crate::lua::LuaStruct::<$gname>) {
+                pub fn _finish(self) -> crate::lua::LuaDeferImpl!(crate::lua::LuaStruct::<$gname>) {
                     crate::lua::lua_defer_val(|lua| {
                         let table = lua.create_table()?;
                         let Self { $($field),* } = self;

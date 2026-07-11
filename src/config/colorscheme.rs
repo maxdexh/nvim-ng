@@ -1,4 +1,4 @@
-use crate::{plugins::GenericPlugin, prelude::*};
+use crate::prelude::*;
 
 impl NvimConf<'_> {
     pub fn load_colorscheme(&self) {
@@ -10,16 +10,16 @@ impl NvimConf<'_> {
         ]);
 
         self.req_treesitter()
-            .and_then(|it| it.setup()?.call(tbl!({})))
+            .and_then(|it| it.setup()?.call(tbl!(owned, {})))
             .ok_or_notify(env);
 
-        self.call_require::<GenericPlugin>("catppuccin")
-            .and_then(|it| {
-                it.setup()?.call(tbl!({
-                    transparent_background = true;
-                }))
-            })
-            .ok_or_notify(env);
+        self.setup_plugin(
+            "catppuccin",
+            tbl!(owned, {
+                transparent_background = true;
+            }),
+        )
+        .ok_or_notify(env);
 
         self.run_cmd("colorscheme catppuccin");
     }

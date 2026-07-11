@@ -16,7 +16,7 @@ impl<T: mlua::FromLua> CachedReq<T> {
         }
         std::hint::cold_path();
 
-        let it = env.conf().call_require(name)?;
+        let it = env.globals.require()?.call_any_ret(name)?;
         Ok(self.0.get_or_init(|| it))
     }
 }
@@ -45,7 +45,7 @@ impl<T> Default for CachedSetup<T> {
     }
 }
 impl<T: mlua::FromLua> CachedSetup<T> {
-    pub fn register(
+    pub fn register_setup(
         &self,
         callback: impl FnOnce(&Nvim, &T) -> Result<()> + 'static + Send,
     ) -> Result<()> {
@@ -69,7 +69,7 @@ impl<T: mlua::FromLua> CachedSetup<T> {
         Ok(
             match &mut *state.lock().unwrap_or_else(|pe| pe.into_inner()) {
                 state @ SetupState::Ready(_) => {
-                    let module: T = env.conf().call_require(name)?;
+                    let module: T = env.globals.require()?.call_any_ret(name)?;
                     let SetupState::Ready(cb) = std::mem::replace(state, SetupState::Done) else {
                         unreachable!()
                     };
@@ -114,13 +114,6 @@ impl NvimConf<'_> {
             .require("nvim-treesitter", self.env())
     }
 }
-
-// TODO: Stricter typing
-from_tbl_proxy!({
-    struct GenericPlugin {
-        setup: LuaCallable<LuaDict<LuaVal>, ()>,
-    }
-});
 
 from_tbl_proxy!({
     struct Snacks {

@@ -13,7 +13,7 @@ impl NvimConf<'_> {
         .ok_or_notify(env);
 
         self.req_persistence()
-            .and_then(|pers| pers.setup()?.call(tbl!({})))
+            .and_then(|pers| pers.setup()?.call(tbl!(owned, {})))
             .ok_or_notify(env);
     }
 }

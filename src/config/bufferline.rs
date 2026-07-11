@@ -1,19 +1,14 @@
-use crate::{env::vim::keymap::KeymapOpts, plugins::GenericPlugin, prelude::*};
+use crate::{env::gvim::keymap::KeymapOpts, prelude::*};
 
 impl NvimConf<'_> {
     pub fn load_bufferline(&self) {
-        let env = self.env();
-
         self.add_packs([
             "https://github.com/nvim-tree/nvim-web-devicons",
             "https://github.com/akinsho/bufferline.nvim",
         ]);
 
-        do_try(|| {
-            self.call_require::<GenericPlugin>("bufferline")
-                .and_then(|bl| bl.setup()?.call(self.bufferline_opts()))
-        })
-        .ok_or_notify(env);
+        self.setup_plugin("bufferline", self.bufferline_opts())
+            .ok_or_notify(self);
 
         self.set_keymap(
             "n",
@@ -41,6 +36,6 @@ impl NvimConf<'_> {
     }
 
     fn bufferline_opts(&self) -> impl LuaSub<LuaDict<LuaVal>> {
-        tbl!({})
+        tbl!(owned, {})
     }
 }

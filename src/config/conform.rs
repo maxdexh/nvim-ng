@@ -15,9 +15,9 @@ impl NvimConf<'_> {
 
         env.req_cache
             .conform
-            .register(|_, conform| {
-                conform.setup()?.call(tbl!({
-                    format_on_save = tbl!({
+            .register_setup(|_, conform| {
+                conform.setup()?.call(tbl!(owned, {
+                    format_on_save = tbl!(owned, {
                         timeout_ms = 500;
                         lsp_format = "fallback";
                     });

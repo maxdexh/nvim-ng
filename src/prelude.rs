@@ -5,8 +5,9 @@ pub(crate) use crate::utils::{LuaDict, LuaDictMut, ResultExt, do_try, mk_builder
 pub use mlua::{Lua, ObjectLike, UserData};
 
 pub use crate::lua::{
-    LuaBottom, LuaCallable, LuaDeferErr, LuaError, LuaInt, LuaMap, LuaMapMut, LuaNil, LuaSeq,
-    LuaString, LuaStruct, LuaTableSet, LuaUnion, LuaVal, Result, lua_conv_sub,
+    LuaBottom, LuaCallable, LuaDeferErr, LuaError, LuaInt, LuaMap, LuaMapMut, LuaMapOwned, LuaNil,
+    LuaSeq, LuaSeqOwned, LuaString, LuaStruct, LuaTableSet, LuaUnion, LuaVal, Result, lua_conv_sub,
+    lua_defer_val,
 };
 pub use crate::typing::{
     FromLuaMultiTyped, FromLuaTyped, IntoLuaMultiTyped, IntoLuaTyped, LuaSub, LuaSubMulti,

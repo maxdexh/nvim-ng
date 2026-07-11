@@ -1,20 +1,10 @@
-use crate::{env::vim::keymap::KeymapOpts, plugins::GenericPlugin, prelude::*};
+use crate::{env::gvim::keymap::KeymapOpts, prelude::*};
 
 impl NvimConf<'_> {
     pub fn load_oil(&self) {
-        let env = self.env();
-        do_try(|| {
-            env.globals
-                .vim()?
-                .pack()?
-                .add()?
-                .call(["https://github.com/barrettruth/canola.nvim"])
-        })
-        .ok_or_notify(env);
+        self.add_packs(["https://github.com/barrettruth/canola.nvim"]);
 
-        self.call_require::<GenericPlugin>("oil")
-            .and_then(|oil| oil.setup()?.call(self.oil_opts()))
-            .ok_or_notify(self.env());
+        self.setup_plugin("oil", self.oil_opts()).ok_or_notify(self);
 
         self.set_keymap(
             "n",
@@ -41,7 +31,7 @@ impl NvimConf<'_> {
     }
 
     fn oil_opts(&self) -> impl LuaSub<LuaDict<LuaVal>> {
-        tbl!({
+        tbl!(owned, {
             default_file_explorer = true;
             buf_options.buflisted = false;
             float.border = "rounded";

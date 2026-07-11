@@ -1,7 +1,7 @@
-use crate::{env::vim::api::AutoCmdOpts, prelude::*};
+use crate::{env::gvim::api::AutoCmdOpts, prelude::*};
 
 impl NvimConf<'_> {
-    pub fn ts_install_lang(&self, s: &str) {
+    pub fn ts_install_parser(&self, s: impl LuaSub<LuaString>) {
         self.req_treesitter()
             .and_then(|ts| ts.install()?.call([s]))
             .ok_or_notify(self.env());
@@ -16,11 +16,12 @@ impl NvimConf<'_> {
             mk_builder!(AutoCmdOpts, {
                 pattern = Some(ft);
                 callback = self.create_cb(move |conf, ()| {
-                    tbl!(out(&conf.env().globals.vim()?.opt_local()?), {
-                        shiftwidth = 0;
-                        tabstop = indent;
-                        expandtab = true;
+                    tbl!(out(conf.lua().globals()), {
+                        vim.opt_local.shiftwidth = 0;
+                        vim.opt_local.tabstop = indent;
+                        vim.opt_local.expandtab = true;
                     })
+                    .map(|_| ())
                 });
             }),
         );

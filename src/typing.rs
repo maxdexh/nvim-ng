@@ -441,6 +441,8 @@ mod into_impls {
         default!(general_defaults);
 
         type IsStruct<Fs> = And<IsIntoMulti<S::Fields, Fs>, IsIntoMulti<Fs, S::Fields>>;
+        type IsTableMapConst<K, V> =
+            And<IsInto<crate::lua::LuaString, K>, IsInto<crate::lua::LuaVal, V>>;
     });
 }
 

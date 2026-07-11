@@ -1,12 +1,12 @@
 mod plugin;
 
-use crate::prelude::*;
+use crate::{lua::AsLua, prelude::*};
 
-pub mod vim;
+pub mod gvim;
 
 crate::utils::from_tbl_proxy!({
     struct Globals {
-        vim: vim::Vim,
+        vim: gvim::Vim,
         require: LuaCallable<LuaString, LuaVal>,
     }
 });
@@ -61,10 +61,6 @@ pub fn lua_notify_err(lua: Option<&Lua>, err: impl std::fmt::Display) {
 }
 
 impl Nvim {
-    #[cold]
-    pub fn notify_err(&self, err: impl std::fmt::Display) {
-        lua_notify_err(Some(&self.lua), err)
-    }
     pub fn create_func<A: FromLuaMultiTyped, R: IntoLuaMultiTyped>(
         &self,
         f: impl Fn(&Nvim, A) -> Result<R> + 'static,
@@ -77,9 +73,14 @@ impl Nvim {
         )
     }
 }
-impl AsRef<Nvim> for Nvim {
-    fn as_ref(&self) -> &Nvim {
-        self
+impl AsLua for Nvim {
+    fn as_lua(&self) -> &Lua {
+        &self.lua
+    }
+}
+impl AsLua for NvimConf<'_> {
+    fn as_lua(&self) -> &Lua {
+        self.lua()
     }
 }
 
@@ -98,10 +99,5 @@ impl NvimConf<'_> {
     #[allow(dead_code)]
     pub fn lua(&self) -> &Lua {
         &self.env().lua
-    }
-}
-impl AsRef<Nvim> for NvimConf<'_> {
-    fn as_ref(&self) -> &Nvim {
-        self.env()
     }
 }

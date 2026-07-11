@@ -1,9 +1,7 @@
-use crate::{env::vim::pack::PackOpts, plugins::GenericPlugin, prelude::*};
+use crate::{env::gvim::pack::PackOpts, prelude::*};
 
 impl NvimConf<'_> {
     pub fn load_completions(&self) {
-        let env = self.env();
-
         if let Some(version) = self.version_range("1.*").ok_or_notify(self) {
             self.add_packs([mk_builder!(PackOpts, {
                 src = "https://github.com/Saghen/blink.cmp";
@@ -12,15 +10,14 @@ impl NvimConf<'_> {
         }
         self.add_packs(["https://github.com/L3MON4D3/LuaSnip"]);
 
-        self.call_require::<GenericPlugin>("blink.cmp")
-            .and_then(|it| it.setup()?.call(self.cmp_opts()))
-            .ok_or_notify(env);
+        self.setup_plugin("blink.cmp", self.cmp_opts())
+            .ok_or_notify(self);
     }
 
     fn cmp_opts(&self) -> impl LuaSub<LuaDict<LuaVal>> {
-        tbl!({
-            appearance = tbl!({
-                kind_icons = tbl!({
+        tbl!(owned, {
+            appearance = tbl!(owned, {
+                kind_icons = tbl!(owned, {
                     Array = " ";
                     Boolean = "󰨙 ";
                     Class = " ";
@@ -65,21 +62,21 @@ impl NvimConf<'_> {
                 nerd_font_variant = "mono";
                 use_nvim_cmp_as_default = false;
             });
-            cmdline = tbl!({
-                completion = tbl!({
+            cmdline = tbl!(owned, {
+                completion = tbl!(owned, {
                     ghost_text.enabled = true;
                     list.selection.preselect = false;
                 });
                 enabled = true;
-                keymap = tbl!({
+                keymap = tbl!(owned, {
                     "<Left>" = false;
                     "<Right>" = false;
                     preset = "cmdline";
                 });
             });
-            completion = tbl!({
+            completion = tbl!(owned, {
                 accept.auto_brackets.enabled = true;
-                documentation = tbl!({
+                documentation = tbl!(owned, {
                     auto_show = true;
                     auto_show_delay_ms = 200;
                     window.border = "single";
@@ -87,16 +84,16 @@ impl NvimConf<'_> {
                 ghost_text.enabled = true;
 
                 list.selection.auto_insert = false;
-                menu = tbl!({
+                menu = tbl!(owned, {
                     border = "single";
                     draw.treesitter = ["lsp"];
                 });
             });
-            fuzzy = tbl!({
+            fuzzy = tbl!(owned, {
                 implementation = "prefer_rust_with_warning";
                 sorts = ["exact", "score", "sort_text"];
             });
-            keymap = tbl!({
+            keymap = tbl!(owned, {
                 "<C-e>" = ["hide", "fallback"];
                 "<C-n>" = ["select_next", "fallback"];
                 "<C-p>" = ["select_prev", "fallback"];

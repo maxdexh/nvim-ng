@@ -24,11 +24,11 @@ impl NvimConf<'_> {
         let find_text =
             self.create_cb(|conf, ()| conf.req_snacks()?.dashboard()?.pick()?.call("live_grep"));
         let load_session = self.create_cb(|conf, ()| {
-            conf.req_persistence()?.load()?.call(tbl!({
+            conf.req_persistence()?.load()?.call(tbl!(owned, {
                 last = true;
             }))
         });
-        tbl!({
+        tbl!(owned, {
             bigfile.enabled = true;
             indent.enabled = true;
             input.enabled = true;
@@ -39,34 +39,34 @@ impl NvimConf<'_> {
             statuscolumn.enabled = false;
             words.enabled = true;
             picker.ui_select = true;
-            dashboard = tbl!({
+            dashboard = tbl!(owned, {
                 enabled = true;
                 preset.keys = tbl_seq![
-                    tbl!({
+                    tbl!(owned, {
                         icon = " ";
                         key = "f";
                         desc = "Find File";
                         action = find_file;
                     }),
-                    tbl!({
+                    tbl!(owned, {
                         icon = " ";
                         key = "n";
                         desc = "New File";
                         action = ":ene | startinsert";
                     }),
-                    tbl!({
+                    tbl!(owned, {
                         icon = " ";
                         key = "g";
                         desc = "Find Text";
                         action = find_text;
                     }),
-                    tbl!({
+                    tbl!(owned, {
                         icon = " ";
                         key = "s";
                         desc = "Restore Session";
                         action = load_session;
                     }),
-                    tbl!({
+                    tbl!(owned, {
                         icon = " ";
                         key = "q";
                         desc = "Quit";
@@ -74,10 +74,10 @@ impl NvimConf<'_> {
                     }),
                 ];
                 sections = tbl_seq![
-                    tbl!({
+                    tbl!(owned, {
                         section = "header";
                     }),
-                    tbl!({
+                    tbl!(owned, {
                         section = "keys";
                         gap = 1;
                         padding = 1;

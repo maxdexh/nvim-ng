@@ -1,4 +1,4 @@
-use crate::{env::vim::keymap::KeymapOpts, prelude::*};
+use crate::{env::gvim::keymap::KeymapOpts, prelude::*};
 
 fn call_picker(
     conf: NvimConf,
@@ -42,7 +42,7 @@ impl NvimConf<'_> {
                 call_picker(
                     conf,
                     "files",
-                    Some(tbl!({
+                    Some(tbl!(owned, {
                         cwd = get_cwd(conf)?;
                     })),
                 )
@@ -59,7 +59,7 @@ impl NvimConf<'_> {
                 call_picker(
                     env,
                     "files",
-                    Some(tbl!({
+                    Some(tbl!(owned, {
                         cwd = get_root(env)?;
                     })),
                 )
@@ -76,7 +76,7 @@ impl NvimConf<'_> {
                 call_picker(
                     env,
                     "grep",
-                    Some(tbl!({
+                    Some(tbl!(owned, {
                         cwd = get_cwd(env)?;
                     })),
                 )
@@ -93,7 +93,7 @@ impl NvimConf<'_> {
                 call_picker(
                     env,
                     "grep",
-                    Some(tbl!({
+                    Some(tbl!(owned, {
                         cwd = get_root(env)?;
                     })),
                 )
@@ -110,7 +110,7 @@ impl NvimConf<'_> {
                 call_picker(
                     env,
                     "grep_word",
-                    Some(tbl!({
+                    Some(tbl!(owned, {
                         cwd = get_cwd(env)?;
                     })),
                 )
@@ -127,7 +127,7 @@ impl NvimConf<'_> {
                 call_picker(
                     env,
                     "grep_word",
-                    Some(tbl!({
+                    Some(tbl!(owned, {
                         cwd = get_root(env)?;
                     })),
                 )

@@ -276,12 +276,12 @@ impl<T, F: FnOnce(&Lua) -> T> LuaDefer<F> {
 pub fn lua_defer_val<T, F: FnOnce(&Lua) -> Result<T>>(f: F) -> LuaDefer<F> {
     LuaDefer(f)
 }
-macro_rules! lua_defer_impl {
+macro_rules! LuaDeferImpl {
     ($res:ty) => {
         crate::lua::LuaDefer<impl FnOnce(&mlua::Lua) -> mlua::Result<$res>>
     };
 }
-pub(crate) use lua_defer_impl;
+pub(crate) use LuaDeferImpl;
 impl<T: IntoLua, F: FnOnce(&Lua) -> Result<T>> IntoLua for LuaDefer<F> {
     fn into_lua(self, lua: &Lua) -> Result<LuaVal> {
         self.eval(lua)?.into_lua(lua)
@@ -333,5 +333,19 @@ impl<T: LuaStructInner<Repr: mlua::IntoLua>> mlua::IntoLua for LuaStruct<T> {
 impl<T: LuaStructInner<Repr: mlua::FromLua>> mlua::FromLua for LuaStruct<T> {
     fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
         mlua::FromLua::from_lua(value, lua).map(LuaStruct)
+    }
+}
+
+pub trait AsLua {
+    fn as_lua(&self) -> &Lua;
+}
+impl<T: AsLua> AsLua for &T {
+    fn as_lua(&self) -> &Lua {
+        T::as_lua(self)
+    }
+}
+impl AsLua for Lua {
+    fn as_lua(&self) -> &Lua {
+        self
     }
 }

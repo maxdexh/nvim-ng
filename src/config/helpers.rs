@@ -1,7 +1,7 @@
 use crate::{
     env::{
         NvimConf,
-        vim::{api::AutoCmdOpts, keymap::KeymapOpts, pack::PackOpts},
+        gvim::{api::AutoCmdOpts, keymap::KeymapOpts, pack::PackOpts},
     },
     prelude::*,
 };
@@ -73,8 +73,14 @@ impl NvimConf<'_> {
                 .and_then(|f| f(env, args))
         })
     }
-    pub fn call_require<T: mlua::FromLua>(&self, s: &str) -> Result<T> {
-        self.env().globals.require()?.call_any_ret(s)
+    pub fn setup_plugin(&self, name: &str, opts: impl LuaSub<LuaDict<LuaVal>>) -> Result<()> {
+        let plugin = self
+            .env()
+            .globals
+            .require()?
+            .call_any_ret::<mlua::Table>(name)?;
+        let setup: LuaCallable<LuaDict<LuaVal>, ()> = plugin.get("setup")?;
+        setup.call(opts)
     }
     pub fn add_packs(
         &self,
