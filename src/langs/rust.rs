@@ -9,8 +9,10 @@ impl NvimConf<'_> {
             })]);
         }
 
-        tbl!(out(self.lua().globals()), {
-            vim.g.rustaceanvim = self.rustaceanvim_opts();
+        self.with_vim_g(|g| {
+            tbl!(out(g), {
+                rustaceanvim = self.rustaceanvim_opts();
+            })
         })
         .ok_or_notify(self);
 

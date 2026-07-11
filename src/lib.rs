@@ -4,7 +4,7 @@ mod env;
 mod config;
 mod langs;
 mod lua;
-mod plugins;
 mod prelude;
+mod registry;
 mod typing;
 mod utils;

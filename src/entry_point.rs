@@ -11,7 +11,7 @@ fn nvim_config(lua: &Lua) -> Result<LuaVal> {
     let env = Nvim {
         lua: lua.clone(),
         globals,
-        req_cache: Default::default(),
+        registry: crate::registry::Registry::default(),
     };
     env.load_init();
     Ok(LuaVal::Nil)

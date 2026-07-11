@@ -7,7 +7,7 @@ impl NvimConf<'_> {
             "https://github.com/akinsho/bufferline.nvim",
         ]);
 
-        self.setup_plugin("bufferline", self.bufferline_opts())
+        self.setup_plugin_now("bufferline", self.bufferline_opts())
             .ok_or_notify(self);
 
         self.set_keymap(

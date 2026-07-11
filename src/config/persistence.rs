@@ -1,19 +1,20 @@
 use crate::prelude::*;
 
-impl NvimConf<'_> {
-    pub fn load_persistence(&self) {
-        let env = self.env();
-        do_try(|| {
-            env.globals
-                .vim()?
-                .pack()?
-                .add()?
-                .call(["https://github.com/folke/persistence.nvim"])
-        })
-        .ok_or_notify(env);
+crate::utils::from_tbl_proxy!({
+    struct Persistence {
+        setup: LuaCallable<LuaDict<LuaVal>, ()>,
+        load: LuaCallable<LuaDict<LuaVal>, ()>,
+    }
+});
 
-        self.req_persistence()
-            .and_then(|pers| pers.setup()?.call(tbl!(owned, {})))
-            .ok_or_notify(env);
+impl NvimConf<'_> {
+    pub fn req_persistence(&self) -> Result<Persistence> {
+        self.setup_plugin::<Persistence>("persistence", |pers| pers.setup()?.call(tbl!(owned, {})))
+    }
+
+    pub fn load_persistence(&self) {
+        self.add_packs(["https://github.com/folke/persistence.nvim"]);
+
+        self.req_persistence().ok_or_notify(self);
     }
 }

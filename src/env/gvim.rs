@@ -10,6 +10,9 @@ pub mod version;
 
 crate::utils::from_tbl_proxy!({
     struct Vim {
+        opt: LuaDictMut<LuaVal>,
+        opt_local: LuaDictMut<LuaVal>,
+        g: LuaDictMut<LuaVal>,
         uv: uv::VimUV,
         pack: pack::VimPack,
         keymap: keymap::VimKeymap,

@@ -2,26 +2,29 @@ use crate::prelude::*;
 
 impl NvimConf<'_> {
     pub fn load_options(&self) {
-        let env = self.env();
-
-        tbl!(out(self.lua().globals()), {
-            vim.opt.shiftwidth = 0;
-            vim.opt.tabstop = 2;
-            vim.opt.expandtab = true;
-            vim.opt.number = true;
-            vim.opt.relativenumber = true;
-            vim.opt.undofile = true;
+        self.with_vim_opt(|opt| {
+            tbl!(out(opt), {
+                shiftwidth = 0;
+                tabstop = 2;
+                expandtab = true;
+                number = true;
+                relativenumber = true;
+                undofile = true;
+            })
         })
-        .ok_or_notify(env);
+        .ok_or_notify(self);
 
-        tbl!(out(self.lua().globals()), {
-            snacks_animate = false;
-            mapleader = " ";
+        self.with_vim_g(|g| {
+            tbl!(out(g), {
+                snacks_animate = false;
+                mapleader = " ";
+            })
         })
-        .ok_or_notify(env);
+        .ok_or_notify(self);
 
         do_try(|| {
-            env.globals
+            self.env()
+                .globals
                 .vim()?
                 .diagnostic()?
                 .config()?
@@ -29,6 +32,6 @@ impl NvimConf<'_> {
                     virtual_text.severity.min = 2; // 2 = warn
                 }))
         })
-        .ok_or_notify(env);
+        .ok_or_notify(self);
     }
 }

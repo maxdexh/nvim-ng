@@ -10,7 +10,7 @@ impl NvimConf<'_> {
         }
         self.add_packs(["https://github.com/L3MON4D3/LuaSnip"]);
 
-        self.setup_plugin("blink.cmp", self.cmp_opts())
+        self.setup_plugin_now("blink.cmp", self.cmp_opts())
             .ok_or_notify(self);
     }
 

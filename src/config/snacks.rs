@@ -1,21 +1,32 @@
-use crate::prelude::*;
+use crate::{prelude::*, utils::from_tbl_proxy};
 
+from_tbl_proxy!({
+    struct SnacksDash {
+        pick: LuaCallable<LuaString, ()>,
+    }
+});
+from_tbl_proxy!({
+    struct SnacksGit {
+        get_root: LuaCallable<(), Option<LuaString>>,
+    }
+});
+from_tbl_proxy!({
+    struct Snacks {
+        setup: LuaCallable<LuaDict<LuaVal>, ()>,
+        git: SnacksGit,
+        dashboard: SnacksDash,
+        picker: LuaDict<LuaCallable<Option<LuaDict<LuaVal>>, ()>>,
+    }
+});
 impl NvimConf<'_> {
-    pub fn load_snacks(&self) {
-        let env = self.env();
-        do_try(|| {
-            env.globals
-                .vim()?
-                .pack()?
-                .add()?
-                .call(["https://github.com/folke/snacks.nvim"])
-        })
-        .ok_or_notify(env);
+    pub fn req_snacks(&self) -> Result<Snacks> {
+        self.setup_plugin::<Snacks>("snacks", |snacks| snacks.setup()?.call(self.snacks_opts()))
+    }
 
-        let Some(snacks) = self.req_snacks().ok_or_notify(env) else {
-            return;
-        };
-        do_try(|| snacks.setup()?.call(self.snacks_opts())).ok_or_notify(env);
+    pub fn load_snacks(&self) {
+        self.add_packs(["https://github.com/folke/snacks.nvim"]);
+
+        self.req_snacks().ok_or_notify(self);
     }
 
     fn snacks_opts(&self) -> impl LuaSub<LuaDict<LuaVal>> {

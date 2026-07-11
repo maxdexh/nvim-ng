@@ -117,7 +117,6 @@ impl<A, R> LuaCallable<A, R> {
     where
         A: FromLuaMultiTyped,
     {
-        // TODO: Optional validation
         self.as_any().call_any(args)
     }
 
@@ -153,18 +152,38 @@ pub struct LuaMapMut<K, V>(
 pub struct LuaSeq<T>(mlua::Table, PhantomData<fn() -> T>);
 pub struct LuaSeqMut<T>(mlua::Table, PhantomData<fn(T) -> T>);
 pub struct LuaSeqOwned<T>(mlua::Table, PhantomData<fn() -> T>);
-pub trait LuaTableSet {
-    type Key: FromLuaTyped;
-    type Val: FromLuaTyped;
+pub trait LuaTableGet {
+    type Key;
+    type Val;
 
+    fn get(&self, key: impl LuaSub<Self::Key>) -> Result<Self::Val>;
+}
+pub trait LuaTableSet: LuaTableGet {
     fn set(&self, key: impl LuaSub<Self::Key>, val: impl LuaSub<Self::Val>) -> Result<()>;
 }
-impl<T: LuaTableSet> LuaTableSet for &T {
+impl<T: LuaTableGet> LuaTableGet for &T {
     type Key = T::Key;
     type Val = T::Val;
 
+    fn get(&self, key: impl LuaSub<Self::Key>) -> Result<Self::Val> {
+        T::get(self, key)
+    }
+}
+impl<T: LuaTableSet> LuaTableSet for &T {
     fn set(&self, key: impl LuaSub<Self::Key>, val: impl LuaSub<Self::Val>) -> Result<()> {
         T::set(self, key, val)
+    }
+}
+impl LuaTableGet for mlua::Table {
+    type Key = mlua::Value;
+    type Val = mlua::Value;
+    fn get(&self, key: impl LuaSub<Self::Key>) -> Result<Self::Val> {
+        self.get(key)
+    }
+}
+impl LuaTableSet for mlua::Table {
+    fn set(&self, key: impl LuaSub<Self::Key>, val: impl LuaSub<Self::Val>) -> Result<()> {
+        self.set(key, val)
     }
 }
 
@@ -187,11 +206,16 @@ const _: () = {
                 pub fn into_table_any(self) -> mlua::Table {
                     self.0
                 }
-                pub fn get(&self, k: impl LuaSub<$k>) -> Result<$v>
+            }
+            impl<$($g)*> LuaTableGet for $t
                 where
-                    $k: FromLuaTyped,
-                    $v: FromLua,
-                {
+                    $k: mlua::FromLua,
+                    $v: mlua::FromLua,
+            {
+                type Key = $k;
+                type Val = $v;
+
+                fn get(&self, k: impl LuaSub<$k>) -> Result<$v> {
                     self.0.get(k)
                 }
             }
@@ -222,8 +246,6 @@ const _: () = {
                 $k: IntoLuaTyped + FromLuaTyped,
                 $v: IntoLuaTyped + FromLuaTyped,
             {
-                type Key = $k;
-                type Val = $v;
                 fn set(&self, k: impl LuaSub<$k>, v: impl LuaSub<$v>) -> Result<()> {
                     // TODO: Optional Validation
                     self.0.set(k, v)
@@ -250,8 +272,6 @@ const _: () = {
                 $k: FromLuaTyped,
                 $v: FromLuaTyped,
             {
-                type Key = $k;
-                type Val = $v;
                 fn set(&self, k: impl LuaSub<$k>, v: impl LuaSub<$v>) -> Result<()> {
                     // TODO: Optional Validation
                     self.0.set(k, v)

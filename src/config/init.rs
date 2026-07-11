@@ -3,11 +3,14 @@ use crate::prelude::*;
 impl Nvim {
     pub fn load_init(&self) {
         let conf = self.conf();
+
         conf.load_options();
         conf.load_keybinds();
 
         conf.load_snacks();
         conf.load_persistence();
+
+        conf.load_treesitter();
         conf.load_colorscheme();
 
         conf.load_completions();

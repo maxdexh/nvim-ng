@@ -15,7 +15,7 @@ crate::utils::from_tbl_proxy!({
 pub struct Nvim {
     pub lua: Lua,
     pub globals: Globals,
-    pub req_cache: crate::plugins::ReqCache,
+    pub registry: crate::registry::Registry,
 }
 
 #[cold]
@@ -71,6 +71,10 @@ impl Nvim {
                 .create_function(move |_, args| f(&env, args))
                 .map(LuaCallable::from_mlua_func),
         )
+    }
+
+    pub fn require<T: mlua::FromLua>(&self, name: impl LuaSub<LuaString>) -> Result<T> {
+        self.globals.require()?.call_any_ret(name)
     }
 }
 impl AsLua for Nvim {

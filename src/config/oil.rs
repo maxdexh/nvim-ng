@@ -4,7 +4,8 @@ impl NvimConf<'_> {
     pub fn load_oil(&self) {
         self.add_packs(["https://github.com/barrettruth/canola.nvim"]);
 
-        self.setup_plugin("oil", self.oil_opts()).ok_or_notify(self);
+        self.setup_plugin_now("oil", self.oil_opts())
+            .ok_or_notify(self);
 
         self.set_keymap(
             "n",
