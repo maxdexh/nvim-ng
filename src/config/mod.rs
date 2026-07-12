@@ -7,6 +7,8 @@ mod colorscheme;
 mod completions;
 mod conform;
 mod delims;
+mod gitsigns;
+mod grug_far;
 mod icons;
 mod keybinds;
 mod multi_cursor;

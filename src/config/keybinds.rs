@@ -254,22 +254,22 @@ impl NvimConf<'_> {
             }),
         );
 
-        self.set_keymap(
-            "n",
-            "<C-Down>",
-            "<CMD>resize -2<CR>",
-            mk_builder!(KeymapOpts, {
-                desc = "Decrease window size";
-            }),
-        );
-        self.set_keymap(
-            "n",
-            "<C-Up>",
-            "<CMD>resize +2<CR>",
-            mk_builder!(KeymapOpts, {
-                desc = "Increase window size";
-            }),
-        );
+        macro_rules! resize {
+            ($k:expr, $pref:expr, $v:expr, $desc:expr) => {
+                self.set_keymap(
+                    "n",
+                    concat!("<C-", $k, ">"),
+                    concat!("<CMD>", $pref, "resize ", $v, "<CR>"),
+                    mk_builder!(KeymapOpts, {
+                        desc = $desc;
+                    }),
+                )
+            };
+        }
+        resize!("Down", "", "-2", "Decrease window height");
+        resize!("Up", "", "+2", "Increase window height");
+        resize!("Left", "vertical ", "-2", "Decrease window width");
+        resize!("Right", "vertical ", "+2", "Increase window width");
 
         macro_rules! goto_window {
             ($k:expr, $desc:expr) => {

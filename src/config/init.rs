@@ -26,6 +26,8 @@ impl Nvim {
         conf.load_bufferline();
         conf.load_conform();
         conf.load_oil();
+        conf.load_gitsigns();
+        conf.load_grug_far();
 
         conf.load_nix_lang();
         conf.load_rust_lang();
