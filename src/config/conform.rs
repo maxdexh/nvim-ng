@@ -1,9 +1,10 @@
-use crate::{env::gvim::api::AutoCmdOpts, prelude::*};
+use crate::prelude::*;
 
 crate::utils::from_tbl_proxy!({
     struct Conform {
         setup: LuaCallable<LuaDict<LuaVal>, ()>,
         formatters_by_ft: LuaDictMut<LuaSeq<LuaString>>,
+        formatters: LuaDictMut<LuaDictMut<LuaVal>>,
     }
 });
 
@@ -12,6 +13,8 @@ impl NvimConf<'_> {
         self.add_packs(["https://github.com/stevearc/conform.nvim"]);
     }
     fn req_conform(&self) -> Result<Conform> {
+        // FIXME: Timeout triggers when installing from nixpkgs
+        // FIXME: Keybind to toggle formatting
         self.setup_plugin::<Conform>("conform", |conform| {
             conform.setup()?.call(tbl!(owned, {
                 format_on_save = tbl!(owned, {
@@ -22,24 +25,45 @@ impl NvimConf<'_> {
         })
     }
 
+    // FIXME: table arg can be more than sequence, e.g. fallback = ...
     pub fn set_formatter(&self, ft: impl LuaSub<LuaString>, table: impl LuaSub<LuaSeq<LuaString>>) {
         do_try(|| {
-            let table = lua_conv_sub(self.lua(), table)?;
-            let ft = lua_conv_sub(self.lua(), ft)?;
-
-            self.add_autocmd(
-                "FileType",
-                mk_builder!(AutoCmdOpts, {
-                    once = true;
-                    pattern = ft.clone();
-                    callback = self.create_cb_once(move |conf, ()| {
-                        let conform = conf.req_conform()?;
-                        conform.formatters_by_ft()?.set(ft, table)
-                    });
-                }),
-            );
+            let conform = self.req_conform()?;
+            conform.formatters_by_ft()?.set(ft, table)?;
 
             Ok(())
+        })
+        .ok_or_notify(self);
+    }
+    pub fn formatter_use_nix(&self, formatter: &str, package: &str, cmd: &str) {
+        do_try(|| {
+            let lua = self.lua();
+
+            let formatter: LuaString = lua_conv_sub(lua, formatter)?;
+
+            let fmts = self.req_conform()?.formatters()?.into_table_any();
+            let settings = match fmts.get(formatter.clone())? {
+                Some(s) => s,
+                None => {
+                    let s = lua.create_table()?;
+                    fmts.set(formatter, s.clone())?;
+                    s
+                }
+            };
+            settings.set("command", "nix")?;
+            let prepend_args = self.lua().create_sequence_from([
+                "shell",
+                format!("nixpkgs#{package}").as_str(),
+                "--command",
+                cmd,
+            ])?;
+            let key = lua.create_string("prepend_args")?;
+            if let Some(t) = settings.get::<Option<mlua::Table>>(key.clone())? {
+                for v in t.sequence_values::<mlua::Value>() {
+                    prepend_args.raw_push(v?)?;
+                }
+            }
+            settings.set(key, prepend_args)
         })
         .ok_or_notify(self);
     }

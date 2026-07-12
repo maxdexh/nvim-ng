@@ -18,7 +18,6 @@ impl NvimConf<'_> {
         })
         .ok_or_notify(self);
 
-        self.ts_install_parser("latex");
         self.set_formatter("tex", ["latexindent"]);
     }
 }

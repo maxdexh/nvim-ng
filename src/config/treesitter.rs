@@ -6,8 +6,6 @@ use crate::{
 crate::utils::from_tbl_proxy!({
     struct TSPlugin {
         setup: LuaCallable<LuaDict<LuaVal>, ()>,
-        //get_installed: LuaCallable<(), LuaSeq<LuaString>>,
-        //install: LuaCallable<LuaSeq<LuaString>, ()>,
     }
 });
 
@@ -23,11 +21,6 @@ impl NvimConf<'_> {
                 });
             }))
         })
-    }
-    pub fn ts_install_parser(&self, _: impl LuaSub<LuaString>) {
-        //self.req_treesitter()
-        //    .and_then(|ts| ts.install()?.call([s]))
-        //    .ok_or_notify(self.env());
     }
     pub fn load_treesitter(&self) {
         self.add_packs(["https://github.com/nvim-treesitter/nvim-treesitter"]);

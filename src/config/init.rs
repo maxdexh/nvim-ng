@@ -29,9 +29,15 @@ impl Nvim {
         conf.load_gitsigns();
         conf.load_grug_far();
 
-        conf.load_nix_lang();
+        conf.add_packs(["https://github.com/neovim/nvim-lspconfig"]);
+
         conf.load_rust_lang();
+        conf.load_nix_lang();
         conf.load_lua_lang();
+        conf.load_python_lang();
         conf.load_tex_lang();
+        conf.load_typst_lang();
+        conf.load_cpp_lang();
+        conf.load_shell_langs();
     }
 }

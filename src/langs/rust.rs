@@ -17,7 +17,6 @@ impl NvimConf<'_> {
         .ok_or_notify(self);
 
         self.ft_set_indent("rust", 4);
-        self.ts_install_parser("rust");
         self.set_formatter("rust", ["rustfmt"]);
     }
 
