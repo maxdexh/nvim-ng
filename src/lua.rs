@@ -1,6 +1,6 @@
 use mlua::{FromLua, FromLuaMulti, IntoLua, IntoLuaMulti};
 
-use crate::{env::lua_notify_err, prelude::*};
+use crate::prelude::*;
 use std::marker::PhantomData;
 
 // FIXME: Migrate to anyhow for backtrace support
@@ -76,13 +76,12 @@ impl IntoLua for LuaMaybeCallable {
     }
 }
 impl FromLua for LuaMaybeCallable {
-    fn from_lua(value: mlua::Value, lua: &Lua) -> mlua::Result<Self> {
+    fn from_lua(value: mlua::Value, _: &Lua) -> mlua::Result<Self> {
         Ok(match value {
             mlua::Value::Table(table) => Self::Table(table),
             mlua::Value::Function(func) => Self::Func(func),
             mlua::Value::UserData(data) => Self::Data(data),
             _ => {
-                lua_notify_err(Some(lua), std::backtrace::Backtrace::force_capture());
                 return Err(LuaError::FromLuaConversionError {
                     from: value.type_name(),
                     to: std::any::type_name::<Self>().into(),
@@ -122,7 +121,7 @@ impl<A, R> LuaCallable<A, R> {
         self.as_any().call_any(args)
     }
 
-    pub fn call(self, args: impl LuaSubMulti<A>) -> Result<R>
+    pub fn call(&self, args: impl LuaSubMulti<A>) -> Result<R>
     where
         A: FromLuaMultiTyped,
         R: FromLuaMulti,
@@ -345,19 +344,14 @@ pub trait LuaStructInner: Sized {
     type Fields: FromLuaMultiTyped + IntoLuaMultiTyped;
     type Repr;
 }
-pub struct LuaStruct<T: LuaStructInner>(T::Repr);
-impl<T: LuaStructInner> LuaStruct<T> {
-    pub fn from_repr_unchecked(repr: T::Repr) -> Self {
-        Self(repr)
-    }
-}
+pub struct LuaStruct<T: LuaStructInner>(pub T);
 
-impl<T: LuaStructInner<Repr: mlua::IntoLua>> mlua::IntoLua for LuaStruct<T> {
+impl<T: LuaStructInner + mlua::IntoLua> mlua::IntoLua for LuaStruct<T> {
     fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
         self.0.into_lua(lua)
     }
 }
-impl<T: LuaStructInner<Repr: mlua::FromLua>> mlua::FromLua for LuaStruct<T> {
+impl<T: LuaStructInner + mlua::FromLua> mlua::FromLua for LuaStruct<T> {
     fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
         mlua::FromLua::from_lua(value, lua).map(LuaStruct)
     }

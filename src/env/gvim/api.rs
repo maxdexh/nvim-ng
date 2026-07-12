@@ -8,11 +8,18 @@ crate::utils::from_tbl_proxy!({
 });
 crate::utils::builder_struct!({
     struct AutoCmdOpts {
-        callback: LuaCallable<(), ()>,
+        callback: LuaUnion<LuaString, LuaCallable<LuaStruct<AutoCmdArgs>, ()>>,
         once: Option<bool>,
         pattern: Option<LuaString>,
     }
 });
+crate::utils::from_tbl_struct!({
+    struct AutoCmdArgs {
+        buf: LuaInt,
+        r#match: LuaString,
+    }
+});
+
 crate::utils::builder_struct!({
     struct HighlightOpts {
         underline: Option<bool>,

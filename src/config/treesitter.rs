@@ -1,8 +1,12 @@
-use crate::prelude::*;
+use crate::{
+    env::gvim::api::{AutoCmdArgs, AutoCmdOpts},
+    prelude::*,
+};
 
 crate::utils::from_tbl_proxy!({
     struct TSPlugin {
         setup: LuaCallable<LuaDict<LuaVal>, ()>,
+        //get_installed: LuaCallable<(), LuaSeq<LuaString>>,
         //install: LuaCallable<LuaSeq<LuaString>, ()>,
     }
 });
@@ -27,7 +31,33 @@ impl NvimConf<'_> {
     }
     pub fn load_treesitter(&self) {
         self.add_packs(["https://github.com/nvim-treesitter/nvim-treesitter"]);
-        // TODO: Lazy
-        self.req_ts().ok_or_notify(self);
+
+        self.on_very_lazy(|conf| {
+            conf.req_ts()?;
+            Ok(())
+        })
+        .ok_or_notify(self);
+
+        let cb = self.create_cb(|conf, args: LuaStruct<AutoCmdArgs>| {
+            let ft = args.r#match()?;
+            let vts = conf.env().globals.vim()?.treesitter()?;
+
+            let Some(lang) = vts.language()?.get_lang()?.call(ft)? else {
+                return Ok(());
+            };
+
+            if vts.query()?.get()?.call((lang, "highlights"))?.is_none() {
+                return Ok(());
+            }
+
+            vts.start()?.call(args.buf()?)
+        });
+
+        self.add_autocmd(
+            "FileType",
+            mk_builder!(AutoCmdOpts, {
+                callback = cb;
+            }),
+        );
     }
 }

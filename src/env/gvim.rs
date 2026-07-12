@@ -6,6 +6,7 @@ pub mod keymap;
 pub mod log;
 pub mod lsp;
 pub mod pack;
+pub mod treesitter;
 pub mod uv;
 pub mod version;
 
@@ -25,5 +26,6 @@ crate::utils::from_tbl_proxy!({
         log: log::VimLog,
         lsp: lsp::VimLsp,
         schedule: LuaCallable<LuaCallable<(), ()>, ()>,
+        treesitter: treesitter::VimTreesitter,
     }
 });

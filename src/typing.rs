@@ -435,14 +435,14 @@ mod into_impls {
         });
     };
     impl_into!({
-        #[params(S: crate::lua::LuaStructInner<Repr: mlua::IntoLua>)]
+        #[params(S: crate::lua::LuaStructInner + mlua::IntoLua)]
         impl crate::lua::LuaStruct<S> {}
 
         default!(general_defaults);
 
         type IsStruct<Fs> = And<IsIntoMulti<S::Fields, Fs>, IsIntoMulti<Fs, S::Fields>>;
         type IsTableMapConst<K, V> =
-            And<IsInto<crate::lua::LuaString, K>, IsInto<crate::lua::LuaVal, V>>;
+            And<IsInto<crate::lua::LuaString, K>, IsIntoMulti<S::Fields, mlua::Variadic<V>>>;
     });
 }
 
@@ -496,7 +496,7 @@ mod from_impls {
     impl<L: FromLuaTyped, R: FromLuaTyped> FromLuaTyped for crate::lua::LuaUnion<L, R> {
         type IsFrom<Src: IntoLuaTyped> = Src::IsUnion<L, R>;
     }
-    impl<S: crate::lua::LuaStructInner<Repr: mlua::FromLua>> FromLuaTyped for crate::lua::LuaStruct<S> {
+    impl<S: crate::lua::LuaStructInner + mlua::FromLua> FromLuaTyped for crate::lua::LuaStruct<S> {
         type IsFrom<Src: IntoLuaTyped> = Src::IsStruct<S::Fields>;
     }
 }

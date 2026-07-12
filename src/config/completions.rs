@@ -8,10 +8,32 @@ impl NvimConf<'_> {
                 version = version;
             })]);
         }
-        self.add_packs(["https://github.com/L3MON4D3/LuaSnip"]);
 
         // FIXME: Lazy
         self.setup_plugin_now("blink.cmp", self.cmp_opts())
+            .ok_or_notify(self);
+
+        self.add_packs([
+            "https://github.com/L3MON4D3/LuaSnip",
+            "https://github.com/rafamadriz/friendly-snippets",
+        ]);
+        self.on_very_lazy(|conf| {
+            conf.setup_snippets();
+            Ok(())
+        })
+        .ok_or_notify(self);
+    }
+
+    fn setup_snippets(&self) {
+        do_try(|| {
+            self.env()
+                .require::<mlua::Table>("luasnip.loaders.from_vscode")?
+                .get::<crate::lua::LuaMaybeCallable>("lazy_load")?
+                .call_any::<()>(())
+        })
+        .ok_or_notify(self);
+
+        self.setup_plugin_now("luasnip", tbl!(owned, {}))
             .ok_or_notify(self);
     }
 

@@ -248,10 +248,44 @@ impl NvimConf<'_> {
         self.set_keymap(
             "n",
             "<leader>bd",
-            ":bd<ENTER>",
+            "<CMD>bd<CR>",
             mk_builder!(KeymapOpts, {
                 desc = "Delete buffer and window";
             }),
         );
+
+        self.set_keymap(
+            "n",
+            "<C-Down>",
+            "<CMD>resize -2<CR>",
+            mk_builder!(KeymapOpts, {
+                desc = "Decrease window size";
+            }),
+        );
+        self.set_keymap(
+            "n",
+            "<C-Up>",
+            "<CMD>resize +2<CR>",
+            mk_builder!(KeymapOpts, {
+                desc = "Increase window size";
+            }),
+        );
+
+        macro_rules! goto_window {
+            ($k:expr, $desc:expr) => {
+                self.set_keymap(
+                    "n",
+                    concat!("<C-", $k, ">"),
+                    concat!("<C-w>", $k),
+                    mk_builder!(KeymapOpts, {
+                        desc = concat!("Go to ", $desc, " window");
+                    }),
+                )
+            };
+        }
+        goto_window!("j", "down");
+        goto_window!("k", "up");
+        goto_window!("h", "left");
+        goto_window!("l", "right");
     }
 }

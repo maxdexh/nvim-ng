@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+// TODO:
+// - Git diff on lhs
 impl Nvim {
     pub fn load_init(&self) {
         let conf = self.conf();
@@ -10,9 +12,14 @@ impl Nvim {
         conf.load_snacks();
         conf.load_persistence();
 
+        conf.load_icons();
+
         conf.load_treesitter();
         conf.load_colorscheme();
         conf.load_noice();
+
+        conf.load_delims();
+        conf.load_multicursor();
 
         conf.load_whichkey();
         conf.load_completions();
