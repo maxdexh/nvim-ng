@@ -70,17 +70,20 @@ impl NvimConf<'_> {
             let Some(config_name) = std::env::var_os("NVIM_NIX_HOST_NAME") else {
                 return Ok(None);
             };
-            let flake_expr = "(builtins.getFlake (builtins.toString ./.))";
+            let flake_expr = b"(builtins.getFlake (builtins.toString ./.))" as &[_];
 
             let out = LuaDictMut::<LuaVal>::new(self.lua())?;
 
             if let Some(username) = std::env::var_os("USER") {
-                let mut expr = flake_expr.as_bytes().to_vec();
-                expr.extend_from_slice(b".homeConfigurations.\"");
-                expr.extend_from_slice(username.as_encoded_bytes());
-                expr.extend_from_slice(b"@");
-                expr.extend_from_slice(config_name.as_encoded_bytes());
-                expr.extend_from_slice(b"\".options");
+                let expr = [
+                    flake_expr,
+                    b".homeConfigurations.\"",
+                    username.as_encoded_bytes(),
+                    b"@",
+                    config_name.as_encoded_bytes(),
+                    b"\".options",
+                ]
+                .concat();
                 out.set(
                     "home-manager",
                     tbl!(owned, {
@@ -90,10 +93,13 @@ impl NvimConf<'_> {
             }
 
             if std::env::var_os("NVIM_NIX_IS_NIXOS").is_some_and(|it| it == "1") {
-                let mut expr = flake_expr.as_bytes().to_vec();
-                expr.extend_from_slice(b".nixosConfigurations.\"");
-                expr.extend_from_slice(config_name.as_encoded_bytes());
-                expr.extend_from_slice(b"\".options");
+                let expr = [
+                    flake_expr,
+                    b".nixosConfigurations.\"",
+                    config_name.as_encoded_bytes(),
+                    b"\".options",
+                ]
+                .concat();
                 out.set(
                     "nixos",
                     tbl!(owned, {

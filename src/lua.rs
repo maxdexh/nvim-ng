@@ -23,7 +23,7 @@ impl IntoLua for LuaNil {
 impl FromLua for LuaNil {
     fn from_lua(value: mlua::Value, _: &Lua) -> mlua::Result<Self> {
         match value {
-            mlua::Value::Nil => todo!(),
+            mlua::Value::Nil => Ok(Self),
             _ => Err(LuaError::FromLuaConversionError {
                 from: value.type_name(),
                 to: std::any::type_name::<Self>().into(),

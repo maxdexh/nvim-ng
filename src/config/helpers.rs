@@ -8,7 +8,6 @@ use crate::{
     prelude::*,
 };
 
-// TODO: Stop returning bool
 impl NvimConf<'_> {
     pub fn with_vim_opt<T>(
         &self,
@@ -32,7 +31,7 @@ impl NvimConf<'_> {
         &self,
         event: impl LuaSub<LuaString>,
         opts: impl LuaSub<LuaStruct<AutoCmdOpts>>,
-    ) -> bool {
+    ) {
         do_try(|| {
             self.env()
                 .globals
@@ -41,8 +40,7 @@ impl NvimConf<'_> {
                 .nvim_create_autocmd()?
                 .call((event, opts))
         })
-        .ok_or_notify(self.env())
-        .is_some()
+        .ok_or_notify(self.env());
     }
     pub fn schedule(&self, f: impl FnOnce(NvimConf) -> Result<()> + 'static) -> Result<()> {
         let cb = self.create_cb_once(|conf, ()| f(conf)).into_result()?;
@@ -65,10 +63,8 @@ impl NvimConf<'_> {
             .nvim_create_autocmd()?
             .call(("UIEnter", opts))
     }
-    pub fn run_cmd(&self, cmd: impl LuaSub<LuaString>) -> bool {
-        do_try(|| self.env().globals.vim()?.cmd()?.call(cmd))
-            .ok_or_notify(self.env())
-            .is_some()
+    pub fn run_cmd(&self, cmd: impl LuaSub<LuaString>) {
+        do_try(|| self.env().globals.vim()?.cmd()?.call(cmd)).ok_or_notify(self.env());
     }
     pub fn set_keymap(
         &self,
@@ -76,7 +72,7 @@ impl NvimConf<'_> {
         sequence: impl LuaSub<LuaString>,
         action: impl LuaSub<LuaUnion<LuaString, LuaCallable<(), ()>>>,
         opts: impl LuaSub<LuaStruct<KeymapOpts>>,
-    ) -> bool {
+    ) {
         do_try(|| {
             self.env()
                 .globals
@@ -85,8 +81,7 @@ impl NvimConf<'_> {
                 .set()?
                 .call((modes, sequence, action, opts))
         })
-        .ok_or_notify(self.env())
-        .is_some()
+        .ok_or_notify(self.env());
     }
 
     pub fn create_cb<A: FromLuaMultiTyped>(
@@ -134,13 +129,8 @@ impl NvimConf<'_> {
         }
         Ok(plugin)
     }
-    pub fn add_packs(
-        &self,
-        packs: impl LuaSub<LuaSeq<LuaUnion<LuaStruct<PackOpts>, LuaString>>>,
-    ) -> bool {
-        do_try(|| self.env().globals.vim()?.pack()?.add()?.call(packs))
-            .ok_or_notify(self)
-            .is_some()
+    pub fn add_packs(&self, packs: impl LuaSub<LuaSeq<LuaUnion<LuaStruct<PackOpts>, LuaString>>>) {
+        do_try(|| self.env().globals.vim()?.pack()?.add()?.call(packs)).ok_or_notify(self);
     }
 }
 
