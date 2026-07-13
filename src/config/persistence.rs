@@ -3,7 +3,7 @@ use crate::prelude::*;
 crate::utils::from_tbl_proxy!({
     struct Persistence {
         setup: LuaCallable<LuaDict<LuaVal>, ()>,
-        load: LuaCallable<LuaDict<LuaVal>, ()>,
+        load: LuaCallable<Option<LuaDict<LuaVal>>, ()>,
     }
 });
 
