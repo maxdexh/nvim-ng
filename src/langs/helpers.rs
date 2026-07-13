@@ -35,19 +35,17 @@ impl NvimConf<'_> {
         &self,
         package: &str,
         command: impl IntoIterator<Item: LuaSub<LuaString>>,
-    ) -> LuaDeferErr<LuaSeq<LuaString>> {
-        LuaDeferErr(do_try(|| {
-            let table = self.lua().create_sequence_from([
-                "nix", //
-                "shell",
-                format!("nixpkgs#{package}").as_str(),
-                "--command",
-            ])?;
-            for arg in command {
-                table.raw_push_any(arg)?;
-            }
-            Ok(LuaSeq::cast_table_any(table))
-        }))
+    ) -> Result<LuaSeq<LuaString>> {
+        let table = self.lua().create_sequence_from([
+            "nix", //
+            "shell",
+            format!("nixpkgs#{package}").as_str(),
+            "--command",
+        ])?;
+        for arg in command {
+            table.raw_push_any(arg)?;
+        }
+        Ok(LuaSeq::cast_table_any(table))
     }
 
     pub fn config_lsp_noenable(&self, ls: &str, opts: impl LuaSub<LuaStruct<VimLspConfig>>) {

@@ -65,18 +65,21 @@ impl Nvim {
     pub fn create_func<A: FromLuaMultiTyped, R: IntoLuaMultiTyped>(
         &self,
         f: impl Fn(&Nvim, A) -> Result<R> + 'static,
-    ) -> LuaDeferErr<LuaCallable<A, R>> {
+        err_handler: impl Fn(&Lua, Error) -> mlua::Result<R::IntoReprMulti> + 'static,
+    ) -> Result<LuaCallable<A, R>> {
         let env = self.clone();
-        LuaDeferErr(
-            self.lua
-                .as_mlua()
-                .create_function(move |_, args| f(&env, args).map_err(crate::lua::error_into_mlua))
-                .map(LuaCallable::from_mlua_func)
-                .map_err(Into::into),
-        )
+        self.lua
+            .as_mlua()
+            .create_function(move |lua, args| {
+                A::from_mlua_multi(args)
+                    .and_then(|args| f(&env, args).and_then(|it| it.into_mlua_multi()))
+                    .or_else(|err| err_handler(Lua::by_mlua(lua), err))
+            })
+            .map(LuaCallable::from_mlua_func)
+            .map_err(crate::lua::mlua_into_error)
     }
 
-    pub fn require<T: mlua::FromLua>(&self, name: impl LuaSub<LuaString>) -> Result<T> {
+    pub fn require<T: PopLua>(&self, name: impl LuaSub<LuaString>) -> Result<T> {
         self.globals.require()?.call_any_ret(name)
     }
 }

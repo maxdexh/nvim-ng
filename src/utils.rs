@@ -11,9 +11,8 @@ pub type LuaDictMut<V> = LuaMapMut<LuaString, V>;
 pub mod __mac {
     use crate::lua::LuaDeferImpl;
     use crate::prelude::*;
-    use mlua::IntoLua;
 
-    pub fn single_key_val<K: IntoLua, V: IntoLua>(
+    pub fn single_key_val<K: PushLua, V: PushLua>(
         key: K,
         val: V,
     ) -> LuaDeferImpl!(LuaMapOwned<K, V>) {
@@ -26,7 +25,7 @@ pub mod __mac {
     pub fn tbl_seq_new(lua: &Lua) -> Result<LuaSeqOwned<LuaBottom>> {
         LuaSeqOwned::new(lua)
     }
-    pub fn tbl_seq_append<T: IntoLua, V>(
+    pub fn tbl_seq_append<T: PushLua, V>(
         seq: LuaSeqOwned<V>,
         item: T,
     ) -> Result<LuaSeqOwned<LuaUnion<T, V>>> {
@@ -194,20 +193,28 @@ macro_rules! builder_struct {
             impl<$($field),*> $gname<$($field),*> {
                 crate::utils::builder_struct! { @impl_generic [$($field ($fty))*] $gname [] }
             }
-            impl<$($field: mlua::IntoLua),*> mlua::IntoLua for $gname<$($field),*> {
+            impl<$($field: crate::lua::PushLua),*> mlua::IntoLua for $gname<$($field),*> {
                 fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
                     let table = lua.create_table()?;
                     let Self { $($field),* } = self;
-                    $(table.raw_set(crate::utils::__mac::field_name!($field), $field)?;)*
-                    mlua::Result::Ok(mlua::Value::Table(table))
+                    $({
+                        let val = crate::lua::PushLua::into_mlua($field)
+                            .map_err(crate::lua::mlua_mk_or_recover_error)?;
+                        table.raw_set(crate::utils::__mac::field_name!($field), val)?;
+                    })*
+                    Ok(mlua::Value::Table(table))
                 }
             }
-            impl mlua::FromLua for $gname {
-                fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
-                    let table: mlua::Table = mlua::FromLua::from_lua(value, lua)?;
-                    Ok(Self {$(
-                        $field: table.get(crate::utils::__mac::field_name!($field))?
-                    ),*})
+            impl<$($field: crate::lua::PushLua),*> crate::lua::PushLua for $gname<$($field),*> {
+                type IntoRepr = Self;
+                fn into_mlua(self) -> crate::lua::Result<Self::IntoRepr> {
+                    Ok(self)
+                }
+            }
+            impl crate::lua::PopLua for $gname {
+                type FromRepr = crate::lua::LuaBottom;
+                fn from_mlua(repr: Self::FromRepr) -> crate::lua::Result<Self> {
+                    match repr {}
                 }
             }
             impl<$($field: crate::typing::LuaSub<$fty>),*> crate::lua::LuaStructInner for $gname<$($field),*> {
@@ -267,22 +274,26 @@ macro_rules! from_tbl_struct {
     }) => {
         #[derive(Clone, Debug)]
         $(#[$meta])*
-        pub struct $name { pub table: mlua::Table }
+        pub struct $name { pub table: crate::lua::LuaTableAny }
         #[allow(non_snake_case)]
         impl crate::lua::LuaStruct<$name> {$(
             $(#[$fmeta])*
-            pub fn $field(&self) -> mlua::Result<$fieldty> {
-                self.0.table.get(crate::utils::__mac::field_name!($field))
+            pub fn $field(&self) -> crate::lua::Result<$fieldty> {
+                self.0.table.get_any(crate::utils::__mac::field_name!($field))
             }
         )*}
-        impl mlua::FromLua for $name {
-            fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
-                mlua::FromLua::from_lua(value, lua).map(|table| Self { table })
+        impl crate::lua::PopLua for $name {
+            type FromRepr = mlua::Table;
+            fn from_mlua(repr: Self::FromRepr) -> crate::lua::Result<Self> {
+                Ok(Self {
+                    table: crate::lua::PopLua::from_mlua(repr)?,
+                })
             }
         }
-        impl mlua::IntoLua for $name {
-            fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
-                mlua::IntoLua::into_lua(self.table, lua)
+        impl crate::lua::PushLua for $name {
+            type IntoRepr = mlua::Table;
+            fn into_mlua(self) -> crate::lua::Result<Self::IntoRepr> {
+                crate::lua::PushLua::into_mlua(self.table)
             }
         }
         impl crate::lua::LuaStructInner for $name {
@@ -306,9 +317,12 @@ macro_rules! from_tbl_proxy {
         #[derive(Clone, Debug)]
         $(#[$meta])*
         pub struct $name { pub table: crate::lua::LuaTableAny }
-        impl mlua::FromLua for $name {
-            fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
-                mlua::FromLua::from_lua(value, lua).map(|table| Self { table })
+        impl crate::lua::PopLua for $name {
+            type FromRepr = mlua::Table;
+            fn from_mlua(repr: Self::FromRepr) -> crate::lua::Result<Self> {
+                Ok(Self {
+                    table: crate::lua::PopLua::from_mlua(repr)?,
+                })
             }
         }
         #[allow(non_snake_case)]

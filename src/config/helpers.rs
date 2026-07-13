@@ -43,13 +43,11 @@ impl NvimConf<'_> {
         .ok_or_notify(self.env());
     }
     pub fn schedule(&self, f: impl FnOnce(NvimConf) -> Result<()> + 'static) -> Result<()> {
-        let cb = self.create_cb_once(|conf, ()| f(conf)).into_result()?;
+        let cb = self.create_cb_once(|conf, ()| f(conf))?;
         self.env().globals.vim()?.schedule()?.call(cb)
     }
     pub fn on_very_lazy(&self, f: impl FnOnce(NvimConf) -> Result<()> + 'static) -> Result<()> {
-        let cb = self
-            .create_cb_once(|conf, ()| conf.schedule(f))
-            .into_result()?;
+        let cb = self.create_cb_once(|conf, ()| conf.schedule(f))?;
 
         let opts = mk_builder!(AutoCmdOpts, {
             callback = cb;
@@ -87,16 +85,22 @@ impl NvimConf<'_> {
     pub fn create_cb<A: FromLuaMultiTyped>(
         &self,
         f: impl Fn(NvimConf, A) -> Result<()> + 'static,
-    ) -> LuaDeferErr<LuaCallable<A, ()>> {
-        self.env().create_func(move |env, args| {
-            f(env.conf(), args).ok_or_notify(env);
-            Ok(())
-        })
+    ) -> Result<LuaCallable<A, ()>> {
+        self.env().create_func(
+            move |env, args| {
+                f(env.conf(), args).ok_or_notify(env);
+                Ok(())
+            },
+            |lua, err| {
+                Err::<(), _>(err).ok_or_notify(lua);
+                Ok(())
+            },
+        )
     }
     pub fn create_cb_once<A: FromLuaMultiTyped>(
         &self,
         f: impl FnOnce(NvimConf, A) -> Result<()> + 'static,
-    ) -> LuaDeferErr<LuaCallable<A, ()>> {
+    ) -> Result<LuaCallable<A, ()>> {
         let func = std::sync::Mutex::new(Some(f));
         self.create_cb(move |env, args| {
             func.try_lock()
@@ -116,11 +120,11 @@ impl NvimConf<'_> {
         if !self.get_setup_state().lock_setup(name) {
             panic!("setup_plugin_now called twice on {name:?}");
         }
-        let plugin = self.env().require::<mlua::Table>(name)?;
-        let setup: LuaCallable<LuaDict<LuaVal>, ()> = plugin.get("setup")?;
+        let plugin = self.env().require::<LuaTableAny>(name)?;
+        let setup: LuaCallable<LuaDict<LuaVal>, ()> = plugin.get_any("setup")?;
         setup.call(opts)
     }
-    pub fn setup_plugin<T: mlua::FromLua>(
+    pub fn setup_plugin<T: PopLua>(
         &self,
         name: &str,
         setup: impl FnOnce(&mut T) -> Result<()>,

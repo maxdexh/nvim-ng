@@ -86,7 +86,7 @@ fn set_mc_layer(conf: &NvimConf, setter: NvimKeymapSet) {
             &setter,
             ["n", "x"],
             "<left>",
-            LuaDeferErr(mc.prevCursor()),
+            mc.prevCursor(),
             mk_builder!(KeymapOpts, {
                 desc = "previous cursor";
             }),
@@ -96,7 +96,7 @@ fn set_mc_layer(conf: &NvimConf, setter: NvimKeymapSet) {
             &setter,
             ["n", "x"],
             "<right>",
-            LuaDeferErr(mc.nextCursor()),
+            mc.nextCursor(),
             mk_builder!(KeymapOpts, {
                 desc = "next cursor";
             }),
@@ -106,7 +106,7 @@ fn set_mc_layer(conf: &NvimConf, setter: NvimKeymapSet) {
             &setter,
             ["n", "x"],
             "<M-x>",
-            LuaDeferErr(mc.deleteCursor()),
+            mc.deleteCursor(),
             mk_builder!(KeymapOpts, {
                 desc = "delete cursor";
             }),

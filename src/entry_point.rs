@@ -7,7 +7,8 @@ fn nvim_config(lua: &mlua::Lua) -> mlua::Result<LuaVal> {
     THREAD_LUA.with(|it| _ = it.get_or_init(|| lua.weak()));
     set_panic_hook();
 
-    let globals = lua.unpack(LuaVal::Table(lua.globals()))?;
+    let globals = crate::lua::PopLua::from_mlua(lua.globals())
+        .map_err(crate::lua::mlua_mk_or_recover_error)?;
     let env = Nvim {
         lua: Lua::from_mlua(lua.clone()),
         globals,

@@ -142,7 +142,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "n",
                 "<leader>ca",
-                LuaDeferErr(lsp_buf.code_action()),
+                lsp_buf.code_action(),
                 mk_builder!(KeymapOpts, {
                     desc = "Code Action";
                 }),
@@ -150,7 +150,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "n",
                 "<leader>cr",
-                LuaDeferErr(lsp_buf.rename()),
+                lsp_buf.rename(),
                 mk_builder!(KeymapOpts, {
                     desc = "Rename Symbol";
                 }),
@@ -158,7 +158,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "n",
                 "K",
-                LuaDeferErr(lsp_buf.hover()),
+                lsp_buf.hover(),
                 mk_builder!(KeymapOpts, {
                     desc = "Open Symbol Hover";
                 }),
@@ -166,7 +166,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "i",
                 "<C-h>",
-                LuaDeferErr(lsp_buf.signature_help()),
+                lsp_buf.signature_help(),
                 mk_builder!(KeymapOpts, {
                     desc = "Signature Help";
                 }),
@@ -175,9 +175,7 @@ impl NvimConf<'_> {
         self.set_keymap(
             "n",
             "<leader>xc",
-            LuaDeferErr(do_try(|| {
-                self.env().globals.vim()?.diagnostic()?.open_float()
-            })),
+            do_try(|| self.env().globals.vim()?.diagnostic()?.open_float()),
             mk_builder!(KeymapOpts, {
                 desc = "Show Diagnostic";
             }),

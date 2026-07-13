@@ -1,5 +1,3 @@
--- TODO: Better model for development, such as "generations"
--- and the ability to turn of auto-build.
 local config_path = vim.fn.stdpath("config") --[[@as string]]
 local output = vim.system({
 	"cargo",

@@ -58,7 +58,7 @@ impl NvimConf<'_> {
                 cmd,
             ])?;
             let key = lua.create_string("prepend_args")?;
-            if let Some(t) = settings.get_any::<Option<mlua::Table>>(key.clone())? {
+            if let Some(t) = settings.get_any::<Option<LuaTableAny>>(key.clone())? {
                 for v in t.sequence_values::<mlua::Value>() {
                     prepend_args.raw_push_any(v?)?;
                 }

@@ -27,8 +27,8 @@ impl NvimConf<'_> {
     fn setup_snippets(&self) {
         do_try(|| {
             self.env()
-                .require::<mlua::Table>("luasnip.loaders.from_vscode")?
-                .get::<crate::lua::LuaCallableAny>("lazy_load")?
+                .require::<LuaTableAny>("luasnip.loaders.from_vscode")?
+                .get_any::<crate::lua::LuaCallableAny>("lazy_load")?
                 .call_any::<()>(())
         })
         .ok_or_notify(self);

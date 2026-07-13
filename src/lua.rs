@@ -1,21 +1,224 @@
 use crate::prelude::*;
 use std::marker::PhantomData;
 
-// FIXME: Migrate to anyhow for backtrace support
-pub type MluaError = mlua::Error;
 pub type Error = anyhow::Error;
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-pub fn error_into_mlua(err: Error) -> MluaError {
-    // TODO: Add backtrace
-    err.into()
+mod error {
+    // TODO: Make sure that context and backtraces are not lost
+    #[cold]
+    pub fn mlua_into_error(err: mlua::Error) -> super::Error {
+        err.into()
+    }
+    #[cold]
+    pub fn mlua_mk_or_recover_error(err: super::Error) -> mlua::Error {
+        err.into()
+    }
+}
+pub use error::{mlua_into_error, mlua_mk_or_recover_error};
+
+pub trait PushLua: Sized {
+    type IntoRepr: mlua::IntoLua;
+    fn into_mlua(self) -> Result<Self::IntoRepr>;
+}
+pub trait PopLua: Sized {
+    type FromRepr: mlua::FromLua;
+    fn from_mlua(repr: Self::FromRepr) -> Result<Self>;
+}
+pub trait PushLuaMulti: Sized {
+    type IntoReprMulti: mlua::IntoLuaMulti;
+    fn into_mlua_multi(self) -> Result<Self::IntoReprMulti>;
+}
+impl<T: PushLua> PushLuaMulti for T {
+    type IntoReprMulti = T::IntoRepr;
+    fn into_mlua_multi(self) -> Result<Self::IntoReprMulti> {
+        self.into_mlua()
+    }
+}
+pub trait PopLuaMulti: Sized {
+    type FromReprMulti: mlua::FromLuaMulti;
+    fn from_mlua_multi(repr: Self::FromReprMulti) -> Result<Self>;
+}
+impl<T: PopLua> PopLuaMulti for T {
+    type FromReprMulti = T::FromRepr;
+    fn from_mlua_multi(repr: Self::FromReprMulti) -> Result<Self> {
+        T::from_mlua(repr)
+    }
+}
+macro_rules! impl_tuple {
+    () => {};
+    ($Tail:ident $(,$T:ident)* $(,)?) => {
+        impl_tuple!($($T),*);
+        impl<$($T: PopLua,)* $Tail:PopLuaMulti> PopLuaMulti for ($($T,)* $Tail,) {
+            type FromReprMulti = ($($T::FromRepr,)* $Tail::FromReprMulti,);
+            fn from_mlua_multi(repr: Self::FromReprMulti) -> Result<Self> {
+                #[allow(non_snake_case)]
+                let ($($T,)* $Tail,) = repr;
+                Ok((
+                    $($T::from_mlua($T)?,)*
+                    $Tail::from_mlua_multi($Tail)?,
+                ))
+            }
+        }
+        impl<$($T: PushLua,)* $Tail:PushLuaMulti> PushLuaMulti for ($($T,)* $Tail,) {
+            type IntoReprMulti = ($($T::IntoRepr,)* $Tail::IntoReprMulti,);
+            fn into_mlua_multi(self) -> Result<Self::IntoReprMulti> {
+                #[allow(non_snake_case)]
+                let ($($T,)* $Tail,) = self;
+                Ok((
+                    $($T::into_mlua($T)?,)*
+                    $Tail::into_mlua_multi($Tail)?,
+                ))
+            }
+        }
+    };
+}
+impl_tuple!(
+    TP, TO, TN, TM, TL, TK, TJ, TI, TH, TG, TF, TE, TD, TC, TB, TA,
+);
+pub type LuaVariadic<T> = mlua::Variadic<T>;
+impl<T: PopLua> PopLuaMulti for LuaVariadic<T> {
+    type FromReprMulti = mlua::Variadic<T::FromRepr>;
+    fn from_mlua_multi(repr: Self::FromReprMulti) -> Result<Self> {
+        // NOTE: unnecessary realloc
+        repr.into_iter().map(T::from_mlua).collect()
+    }
+}
+impl<T: PushLua> PushLuaMulti for LuaVariadic<T> {
+    type IntoReprMulti = mlua::Variadic<T::IntoRepr>;
+    fn into_mlua_multi(self) -> Result<Self::IntoReprMulti> {
+        // NOTE: unnecessary realloc
+        self.into_iter().map(T::into_mlua).collect()
+    }
 }
 
+impl<T: PushLua> PushLua for Result<T> {
+    type IntoRepr = T::IntoRepr;
+    fn into_mlua(self) -> Result<Self::IntoRepr> {
+        self.and_then(|it| it.into_mlua())
+    }
+}
+impl<T: PushLua> PushLua for Option<T> {
+    type IntoRepr = Option<T::IntoRepr>;
+    fn into_mlua(self) -> crate::prelude::Result<Self::IntoRepr> {
+        self.map(|it| it.into_mlua()).transpose()
+    }
+}
+impl<T: PopLua> PopLua for Option<T> {
+    type FromRepr = Option<T::FromRepr>;
+    fn from_mlua(repr: Self::FromRepr) -> Result<Self> {
+        repr.map(|it| T::from_mlua(it)).transpose()
+    }
+}
+macro_rules! triv_conv_impl {
+    ($tr:ident, $assoc:ident, $func:ident, $self:ident, $t:ty) => {
+        impl crate::lua::$tr for $t {
+            type $assoc = Self;
+            fn $func($self: Self) -> crate::lua::Result<Self> {
+                Ok($self)
+            }
+        }
+    };
+}
+triv_conv_impl!(PushLuaMulti, IntoReprMulti, into_mlua_multi, self, ());
+triv_conv_impl!(PopLuaMulti, FromReprMulti, from_mlua_multi, repr, ());
+macro_rules! triv_conv_impl_into {
+    ($($t:tt)*) => {
+        triv_conv_impl!(PushLua, IntoRepr, into_mlua, self, $($t)*);
+    };
+}
+macro_rules! triv_conv_impl_from {
+    ($($t:tt)*) => {
+        triv_conv_impl!(PopLua, FromRepr, from_mlua, repr, $($t)*);
+    };
+}
+macro_rules! triv_conv_impl_both {
+    ($($t:tt)*) => {
+        triv_conv_impl_into!($($t)*);
+        triv_conv_impl_from!($($t)*);
+    };
+}
+triv_conv_impl_both!(bool);
+
 pub type LuaVal = mlua::Value;
+triv_conv_impl_both!(LuaVal);
+
 pub type LuaString = mlua::LuaString;
+triv_conv_impl_both!(crate::lua::LuaString);
+const _: () = {
+    macro_rules! strs {
+        ($($int:ty),* $(,)?) => {$(
+            triv_conv_impl_into!($int);
+        )*};
+    }
+    strs!(&str, String, &crate::lua::LuaString);
+};
+
 pub type LuaNum = mlua::Number;
+triv_conv_impl_both!(f32);
+triv_conv_impl_both!(f64);
+
 pub type LuaInt = mlua::Integer;
+const _: () = {
+    macro_rules! ints {
+        ($($int:ty),* $(,)?) => {$(
+            triv_conv_impl_both!($int);
+        )*};
+    }
+    ints![i8, u8, i16, u16, i32, u32, i64, u64, isize, usize];
+};
+impl<T: PushLua, const N: usize> PushLua for [T; N] {
+    type IntoRepr = [T::IntoRepr; N];
+    fn into_mlua(self) -> Result<Self::IntoRepr> {
+        // TODO: Optimize
+        let arr = self.map(T::into_mlua);
+        if arr.iter().any(|it| it.is_err()) {
+            std::hint::cold_path();
+            for x in arr {
+                x?;
+            }
+            unreachable!();
+        }
+        Ok(arr.map(|it| it.unwrap()))
+    }
+}
+
 pub type LuaUnion<L, R> = mlua::Either<L, R>;
+impl<L: PushLua, R: PushLua> PushLua for LuaUnion<L, R> {
+    type IntoRepr = LuaUnion<L::IntoRepr, R::IntoRepr>;
+    fn into_mlua(self) -> Result<Self::IntoRepr> {
+        Ok(match self {
+            Self::Left(l) => LuaUnion::Left(l.into_mlua()?),
+            Self::Right(r) => LuaUnion::Right(r.into_mlua()?),
+        })
+    }
+}
+impl<L: PopLua, R: PopLua> PopLua for LuaUnion<L, R> {
+    type FromRepr = LuaUnion<L::FromRepr, R::FromRepr>;
+    fn from_mlua(repr: Self::FromRepr) -> Result<Self> {
+        Ok(match repr {
+            LuaUnion::Left(l) => Self::Left(L::from_mlua(l)?),
+            LuaUnion::Right(r) => Self::Right(R::from_mlua(r)?),
+        })
+    }
+}
+
+struct TranslateMlua<T>(T);
+impl<T: PopLua> mlua::FromLua for TranslateMlua<T> {
+    fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
+        mlua::FromLua::from_lua(value, lua)
+            .and_then(|it| T::from_mlua(it).map_err(mlua_mk_or_recover_error))
+            .map(Self)
+    }
+}
+impl<T: PushLua> mlua::IntoLua for TranslateMlua<T> {
+    fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
+        self.0
+            .into_mlua()
+            .map_err(mlua_mk_or_recover_error)
+            .and_then(|it| mlua::IntoLua::into_lua(it, lua))
+    }
+}
 
 #[repr(transparent)]
 #[derive(Clone, Debug)]
@@ -32,34 +235,40 @@ impl Lua {
         Self(lua)
     }
     pub fn create_string(&self, s: impl AsRef<[u8]>) -> Result<LuaString> {
-        self.as_mlua().create_string(s).map_err(Into::into)
+        self.as_mlua().create_string(s).map_err(mlua_into_error)
     }
     pub fn create_table(&self) -> Result<LuaTableAny> {
         self.as_mlua()
             .create_table()
             .map(LuaTableAny)
-            .map_err(Into::into)
+            .map_err(mlua_into_error)
     }
-    pub fn create_sequence_from<T: mlua::IntoLua>(
+    pub fn create_sequence_from<T: PushLua>(
         &self,
         iter: impl IntoIterator<Item = T>,
     ) -> Result<LuaTableAny> {
         self.as_mlua()
-            .create_sequence_from(iter)
+            .create_sequence_from(iter.into_iter().map(TranslateMlua))
             .map(LuaTableAny)
-            .map_err(Into::into)
+            .map_err(mlua_into_error)
     }
-    pub fn create_table_from<K: mlua::IntoLua, V: mlua::IntoLua>(
+    pub fn create_table_from<K: PushLua, V: PushLua>(
         &self,
         iter: impl IntoIterator<Item = (K, V)>,
     ) -> Result<LuaTableAny> {
         self.as_mlua()
-            .create_table_from(iter)
+            .create_table_from(
+                iter.into_iter()
+                    .map(|(k, v)| (TranslateMlua(k), TranslateMlua(v))),
+            )
             .map(LuaTableAny)
-            .map_err(Into::into)
+            .map_err(mlua_into_error)
     }
-    pub fn convert<R: mlua::FromLua>(&self, val: impl mlua::IntoLua) -> Result<R> {
-        self.as_mlua().convert(val).map_err(Into::into)
+    pub fn convert<R: PopLua>(&self, val: impl PushLua) -> Result<R> {
+        self.as_mlua()
+            .convert(val.into_mlua()?)
+            .map_err(mlua_into_error)
+            .and_then(|it| R::from_mlua(it))
     }
     pub fn globals(&self) -> LuaTableAny {
         LuaTableAny(self.as_mlua().globals())
@@ -77,7 +286,7 @@ impl mlua::FromLua for LuaNil {
     fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
         match value {
             mlua::Value::Nil => Ok(Self),
-            _ => Err(MluaError::FromLuaConversionError {
+            _ => Err(mlua::Error::FromLuaConversionError {
                 from: value.type_name(),
                 to: std::any::type_name::<Self>().into(),
                 message: None,
@@ -85,41 +294,10 @@ impl mlua::FromLua for LuaNil {
         }
     }
 }
+triv_conv_impl_both!(crate::lua::LuaNil);
 
 #[derive(Debug)]
 pub enum LuaBottom {}
-
-#[derive(Clone, Debug)]
-pub struct LuaTableAny(mlua::Table);
-impl LuaTableAny {
-    pub fn get_any<R: mlua::FromLua>(&self, key: impl mlua::IntoLua) -> Result<R> {
-        self.0.get(key).map_err(Into::into)
-    }
-    #[expect(dead_code)]
-    pub fn raw_set_any(&self, key: impl mlua::IntoLua, val: impl mlua::IntoLua) -> Result<()> {
-        self.0.raw_set(key, val).map_err(Into::into)
-    }
-    pub fn set_any(&self, key: impl mlua::IntoLua, val: impl mlua::IntoLua) -> Result<()> {
-        self.0.set(key, val).map_err(Into::into)
-    }
-    pub fn push_any(&self, val: impl mlua::IntoLua) -> Result<()> {
-        self.0.push(val).map_err(Into::into)
-    }
-    pub fn raw_push_any(&self, val: impl mlua::IntoLua) -> Result<()> {
-        self.0.raw_push(val).map_err(Into::into)
-    }
-}
-impl mlua::FromLua for LuaTableAny {
-    fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
-        mlua::FromLua::from_lua(value, lua).map(Self)
-    }
-}
-impl mlua::IntoLua for LuaTableAny {
-    fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
-        mlua::IntoLua::into_lua(self.0, lua)
-    }
-}
-
 impl mlua::IntoLua for LuaBottom {
     fn into_lua(self, _: &mlua::Lua) -> mlua::Result<mlua::Value> {
         match self {}
@@ -127,11 +305,51 @@ impl mlua::IntoLua for LuaBottom {
 }
 impl mlua::FromLua for LuaBottom {
     fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
-        Err(MluaError::FromLuaConversionError {
+        Err(mlua::Error::FromLuaConversionError {
             from: value.type_name(),
             to: std::any::type_name::<Self>().into(),
             message: None,
         })
+    }
+}
+triv_conv_impl_both!(crate::lua::LuaBottom);
+
+#[derive(Clone, Debug)]
+pub struct LuaTableAny(mlua::Table);
+impl LuaTableAny {
+    pub fn get_any<R: PopLua>(&self, key: impl PushLua) -> Result<R> {
+        self.0
+            .get(key.into_mlua()?)
+            .map_err(mlua_into_error)
+            .and_then(R::from_mlua)
+    }
+    pub fn set_any(&self, key: impl PushLua, val: impl PushLua) -> Result<()> {
+        self.0
+            .set(key.into_mlua()?, val.into_mlua()?)
+            .map_err(mlua_into_error)
+    }
+    pub fn push_any(&self, val: impl PushLua) -> Result<()> {
+        self.0.push(val.into_mlua()?).map_err(mlua_into_error)
+    }
+    pub fn raw_push_any(&self, val: impl PushLua) -> Result<()> {
+        self.0.raw_push(val.into_mlua()?).map_err(mlua_into_error)
+    }
+    pub fn sequence_values<T: PopLua>(&self) -> impl IntoIterator<Item = Result<T>> {
+        self.0
+            .sequence_values()
+            .map(|it| it.map_err(mlua_into_error).and_then(T::from_mlua))
+    }
+}
+impl PushLua for LuaTableAny {
+    type IntoRepr = mlua::Table;
+    fn into_mlua(self) -> Result<Self::IntoRepr> {
+        Ok(self.0)
+    }
+}
+impl PopLua for LuaTableAny {
+    type FromRepr = mlua::Table;
+    fn from_mlua(repr: Self::FromRepr) -> Result<Self> {
+        Ok(Self(repr))
     }
 }
 
@@ -142,14 +360,15 @@ pub enum LuaCallableAny {
     Table(mlua::Table),
 }
 impl LuaCallableAny {
-    pub fn call_any<R: mlua::FromLuaMulti>(&self, args: impl mlua::IntoLuaMulti) -> Result<R> {
+    pub fn call_any<R: PopLuaMulti>(&self, args: impl PushLuaMulti) -> Result<R> {
         use mlua::ObjectLike as _;
         match self {
-            Self::Func(func) => func.call(args),
-            Self::Data(data) => data.call(args),
-            Self::Table(table) => table.call(args),
+            Self::Func(func) => func.call(args.into_mlua_multi()?),
+            Self::Data(data) => data.call(args.into_mlua_multi()?),
+            Self::Table(table) => table.call(args.into_mlua_multi()?),
         }
-        .map_err(Into::into)
+        .map_err(mlua_into_error)
+        .and_then(R::from_mlua_multi)
     }
 }
 impl mlua::IntoLua for LuaCallableAny {
@@ -168,7 +387,7 @@ impl mlua::FromLua for LuaCallableAny {
             mlua::Value::Function(func) => Self::Func(func),
             mlua::Value::UserData(data) => Self::Data(data),
             _ => {
-                return Err(MluaError::FromLuaConversionError {
+                return Err(mlua::Error::FromLuaConversionError {
                     from: value.type_name(),
                     to: std::any::type_name::<Self>().into(),
                     message: Some("expected callable value type".into()),
@@ -177,6 +396,7 @@ impl mlua::FromLua for LuaCallableAny {
         })
     }
 }
+triv_conv_impl_both!(LuaCallableAny);
 
 pub struct LuaCallable<A, R>(LuaCallableAny, PhantomData<fn(A) -> R>);
 impl<A, R> std::fmt::Debug for LuaCallable<A, R> {
@@ -189,18 +409,20 @@ impl<A, R> Clone for LuaCallable<A, R> {
         Self(self.0.clone(), self.1)
     }
 }
-impl<A, R> mlua::FromLua for LuaCallable<A, R> {
-    fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
-        Ok(Self::from_any(lua.unpack(value)?))
+impl<A: PushLuaMulti, R: PopLuaMulti> PopLua for LuaCallable<A, R> {
+    type FromRepr = LuaCallableAny;
+    fn from_mlua(repr: Self::FromRepr) -> Result<Self> {
+        Ok(Self::from_any(repr))
     }
 }
-impl<A, R> mlua::IntoLua for LuaCallable<A, R> {
-    fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
-        lua.pack(self.into_any())
+impl<A: PopLuaMulti, R: PushLuaMulti> PushLua for LuaCallable<A, R> {
+    type IntoRepr = LuaCallableAny;
+    fn into_mlua(self) -> Result<Self::IntoRepr> {
+        Ok(self.into_any())
     }
 }
 impl<A, R> LuaCallable<A, R> {
-    pub fn call_any_ret<U: mlua::FromLuaMulti>(self, args: impl LuaSubMulti<A>) -> Result<U>
+    pub fn call_any_ret<U: PopLuaMulti>(self, args: impl LuaSubMulti<A>) -> Result<U>
     where
         A: FromLuaMultiTyped,
     {
@@ -210,7 +432,7 @@ impl<A, R> LuaCallable<A, R> {
     pub fn call(&self, args: impl LuaSubMulti<A>) -> Result<R>
     where
         A: FromLuaMultiTyped,
-        R: mlua::FromLuaMulti,
+        R: PopLuaMulti,
     {
         // TODO: Optional validation
         self.as_any().call_any(args)
@@ -278,9 +500,14 @@ impl LuaTableSet for LuaTableAny {
 const _: () = {
     macro_rules! g_tbl_prox_impl_base {
         ((gp![$($g:tt)*], $t:ty, ($k:ty, $v:ty $(,)?) $(,)?)) => {
-            impl<$($g)*> mlua::IntoLua for $t {
-                fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
-                    self.into_table_any().into_lua(lua)
+            impl<$($g)*> crate::lua::PushLua for $t
+                where
+                    $k: crate::lua::PushLua,
+                    $v: crate::lua::PushLua,
+            {
+                type IntoRepr = mlua::Table;
+                fn into_mlua(self) -> crate::lua::Result<Self::IntoRepr> {
+                    self.into_table_any().into_mlua()
                 }
             }
             #[allow(dead_code)]
@@ -300,8 +527,8 @@ const _: () = {
             }
             impl<$($g)*> LuaTableGet for $t
                 where
-                    $k: mlua::FromLua,
-                    $v: mlua::FromLua,
+                    $k: crate::lua::PopLua,
+                    $v: crate::lua::PopLua,
             {
                 type Key = $k;
                 type Val = $v;
@@ -316,14 +543,14 @@ const _: () = {
         ((gp![$($g:tt)*], $t:ty, ($k:ty, $v:ty $(,)?) $(,)?)) => {
             g_tbl_prox_impl_base![(gp![$($g)*], $t, ($k, $v))];
 
-            impl<$($g)*> mlua::FromLua for $t
-            where
-                $k: FromLuaTyped,
-                $v: FromLuaTyped,
+            impl<$($g)*> crate::lua::PopLua for $t
+                where
+                    $k: crate::lua::PopLua,
+                    $v: crate::lua::PopLua,
             {
-                fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
-                    // TODO: Optional Validation
-                    Ok(Self::cast_table_any(lua.unpack(value)?))
+                type FromRepr = mlua::Table;
+                fn from_mlua(repr: Self::FromRepr) -> crate::lua::Result<Self> {
+                    Ok(Self::cast_table_any(LuaTableAny::from_mlua(repr)?))
                 }
             }
         };
@@ -342,14 +569,15 @@ const _: () = {
                     self.0.set(k, v)
                 }
             }
-            impl<$($g)*> mlua::FromLua for $t
-            where
-                $k: IntoLuaTyped + FromLuaTyped,
-                $v: IntoLuaTyped + FromLuaTyped,
+            impl<$($g)*> crate::lua::PopLua for $t
+                where
+                    $k: crate::lua::PopLua + crate::lua::PushLua,
+                    $v: crate::lua::PopLua + crate::lua::PushLua,
             {
-                fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
+                type FromRepr = mlua::Table;
+                fn from_mlua(repr: Self::FromRepr) -> crate::lua::Result<Self> {
                     // TODO: Optional Validation
-                    Ok(Self::cast_table_any(lua.unpack(value)?))
+                    Ok(Self::cast_table_any(LuaTableAny::from_mlua(repr)?))
                 }
             }
         };
@@ -393,24 +621,18 @@ macro_rules! LuaDeferImpl {
     };
 }
 pub(crate) use LuaDeferImpl;
-impl<T: mlua::IntoLua, F: FnOnce(&Lua) -> Result<T>> mlua::IntoLua for LuaDefer<F> {
+impl<T: PushLua, F: FnOnce(&Lua) -> T> mlua::IntoLua for LuaDefer<F> {
     fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<LuaVal> {
-        self.eval(lua)?.into_lua(lua)
+        self.eval(lua)
+            .into_mlua()
+            .map_err(mlua_mk_or_recover_error)
+            .and_then(|it| mlua::IntoLua::into_lua(it, lua))
     }
 }
-
-pub struct LuaDeferErr<T>(pub Result<T>);
-impl<T> LuaDeferErr<T> {
-    pub fn into_result(self) -> Result<T> {
-        self.0
-    }
-}
-impl<T> mlua::IntoLua for LuaDeferErr<T>
-where
-    T: mlua::IntoLua,
-{
-    fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
-        self.0?.into_lua(lua)
+impl<T: PushLua, F: FnOnce(&Lua) -> T> PushLua for LuaDefer<F> {
+    type IntoRepr = Self;
+    fn into_mlua(self) -> Result<Self::IntoRepr> {
+        Ok(self)
     }
 }
 
@@ -419,6 +641,12 @@ pub struct LuaCastIntoAny<T>(pub T);
 impl<T: mlua::IntoLua> mlua::IntoLua for LuaCastIntoAny<T> {
     fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
         self.0.into_lua(lua)
+    }
+}
+impl<T: PushLua> PushLua for LuaCastIntoAny<T> {
+    type IntoRepr = T::IntoRepr;
+    fn into_mlua(self) -> Result<Self::IntoRepr> {
+        self.0.into_mlua()
     }
 }
 
@@ -435,14 +663,16 @@ pub trait LuaStructInner: Sized {
 }
 pub struct LuaStruct<T: LuaStructInner>(pub T);
 
-impl<T: LuaStructInner + mlua::IntoLua> mlua::IntoLua for LuaStruct<T> {
-    fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
-        self.0.into_lua(lua)
+impl<T: LuaStructInner + PushLua> PushLua for LuaStruct<T> {
+    type IntoRepr = T::IntoRepr;
+    fn into_mlua(self) -> Result<Self::IntoRepr> {
+        self.0.into_mlua()
     }
 }
-impl<T: LuaStructInner + mlua::FromLua> mlua::FromLua for LuaStruct<T> {
-    fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
-        mlua::FromLua::from_lua(value, lua).map(LuaStruct)
+impl<T: LuaStructInner + PopLua> PopLua for LuaStruct<T> {
+    type FromRepr = T::FromRepr;
+    fn from_mlua(repr: Self::FromRepr) -> Result<Self> {
+        T::from_mlua(repr).map(Self)
     }
 }
 

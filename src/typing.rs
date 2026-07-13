@@ -38,10 +38,10 @@ impl<T: IntoLuaMultiTyped, U: FromLuaMultiTyped> LuaIsSubMulti<U> for T {
 pub trait LuaSubMulti<Base>: LuaIsSubMulti<Base, IsSubMulti = True> {}
 impl<Base: FromLuaMultiTyped, T: LuaIsSubMulti<Base, IsSubMulti = True>> LuaSubMulti<Base> for T {}
 
-pub trait FromLuaTyped: mlua::FromLua {
+pub trait FromLuaTyped: crate::lua::PopLua {
     type IsFrom<Src: IntoLuaTyped>: Bool;
 }
-pub trait IntoLuaTyped: mlua::IntoLua {
+pub trait IntoLuaTyped: crate::lua::PushLua {
     type IsNum: Bool;
     type IsInt: Bool;
     type IsStr: Bool;
@@ -232,6 +232,7 @@ mod into_impls {
 
         type IsBool = True;
     });
+
     impl_into!({
         impl crate::lua::LuaNil {}
 
@@ -239,6 +240,7 @@ mod into_impls {
 
         type IsNil = True;
     });
+
     impl_into!({
         impl crate::lua::LuaVal {}
 
@@ -251,6 +253,7 @@ mod into_impls {
 
         type IsStr = True;
     });
+
     const _: () = {
         mk_defer_to_ty!(defer_str, crate::lua::LuaString);
         macro_rules! lua_strs {
@@ -264,13 +267,7 @@ mod into_impls {
         }
         lua_strs!(&str, String, &crate::lua::LuaString);
     };
-    impl_into!({
-        impl mlua::Function {}
 
-        default!(general_defaults);
-
-        type IsFunc = True;
-    });
     impl_into!({
         impl f32 {}
 
@@ -285,19 +282,22 @@ mod into_impls {
 
         type IsNum = True;
     });
-    macro_rules! ints {
-        ($($int:ty),* $(,)?) => {$(
-            impl_into!({
-                impl $int {}
 
-                default!(general_defaults);
+    const _: () = {
+        macro_rules! ints {
+            ($($int:ty),* $(,)?) => {$(
+                impl_into!({
+                    impl $int {}
 
-                type IsNum = True;
-                type IsInt = True;
-            });
-        )*};
-    }
-    ints![i8, u8, i16, u16, i32, u32, i64, u64, isize, usize];
+                    default!(general_defaults);
+
+                    type IsNum = True;
+                    type IsInt = True;
+                });
+            )*};
+        }
+        ints![i8, u8, i16, u16, i32, u32, i64, u64, isize, usize];
+    };
     const _: () = {
         mk_defer_to_ty!(
             defer_union_T_nil,
@@ -407,7 +407,7 @@ mod into_impls {
         mk_defer_to_ty!(defer_T, T);
         impl_into!({
             #[params(T: IntoLuaTyped)]
-            impl crate::lua::LuaDeferErr<T> {}
+            impl crate::lua::Result<T> {}
 
             default!(defer_T);
         });
@@ -438,7 +438,7 @@ mod into_impls {
         });
     };
     impl_into!({
-        #[params(S: crate::lua::LuaStructInner + mlua::IntoLua)]
+        #[params(S: crate::lua::LuaStructInner + crate::lua::PushLua)]
         impl crate::lua::LuaStruct<S> {}
 
         default!(general_defaults);
@@ -457,9 +457,6 @@ mod from_impls {
     }
     impl FromLuaTyped for crate::lua::LuaString {
         type IsFrom<Src: IntoLuaTyped> = Src::IsStr;
-    }
-    impl FromLuaTyped for mlua::Function {
-        type IsFrom<Src: IntoLuaTyped> = Src::IsFunc;
     }
     impl FromLuaTyped for bool {
         type IsFrom<Src: IntoLuaTyped> = Src::IsBool;
@@ -499,18 +496,18 @@ mod from_impls {
     impl<L: FromLuaTyped, R: FromLuaTyped> FromLuaTyped for crate::lua::LuaUnion<L, R> {
         type IsFrom<Src: IntoLuaTyped> = Src::IsUnion<L, R>;
     }
-    impl<S: crate::lua::LuaStructInner + mlua::FromLua> FromLuaTyped for crate::lua::LuaStruct<S> {
+    impl<S: crate::lua::LuaStructInner + crate::lua::PopLua> FromLuaTyped for crate::lua::LuaStruct<S> {
         type IsFrom<Src: IntoLuaTyped> = Src::IsStruct<S::Fields>;
     }
 }
 
-pub trait IntoLuaMultiTyped: mlua::IntoLuaMulti {
+pub trait IntoLuaMultiTyped: crate::lua::PushLuaMulti {
     type IsIntoVariadic<T: FromLuaTyped>: Bool;
 
     type Head: IntoLuaTyped;
     type Tail: IntoLuaMultiTyped;
 }
-pub trait FromLuaMultiTyped: mlua::FromLuaMulti {
+pub trait FromLuaMultiTyped: crate::lua::PopLuaMulti {
     type IsFromMulti<Src: IntoLuaMultiTyped>: Bool;
 }
 pub type IsIntoMulti<Src, Dst> = <Src as LuaIsSubMulti<Dst>>::IsSubMulti;
