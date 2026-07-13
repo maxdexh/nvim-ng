@@ -411,7 +411,7 @@ impl<A, R> Clone for LuaCallable<A, R> {
 impl<A: PushLuaMulti, R: PopLuaMulti> PopLua for LuaCallable<A, R> {
     type FromRepr = LuaCallableAny;
     fn from_mlua(repr: Self::FromRepr) -> Result<Self> {
-        Ok(Self::from_any(repr))
+        Ok(Self::cast_any_callable(repr))
     }
 }
 impl<A: PopLuaMulti, R: PushLuaMulti> PushLua for LuaCallable<A, R> {
@@ -436,11 +436,11 @@ impl<A, R> LuaCallable<A, R> {
         self.as_any().call_any(args)
     }
 
-    pub fn from_any(func: LuaCallableAny) -> Self {
+    pub fn cast_any_callable(func: LuaCallableAny) -> Self {
         Self(func, PhantomData)
     }
     pub fn from_mlua_func(func: mlua::Function) -> Self {
-        Self::from_any(LuaCallableAny::Func(func))
+        Self::cast_any_callable(LuaCallableAny::Func(func))
     }
     pub fn into_any(self) -> LuaCallableAny {
         self.0

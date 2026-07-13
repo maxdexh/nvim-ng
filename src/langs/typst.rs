@@ -1,4 +1,7 @@
-use crate::{env::gvim::lsp::VimLspConfig, prelude::*};
+use crate::{
+    env::gvim::{api::AutoCmdOpts, lsp::VimLspConfig},
+    prelude::*,
+};
 
 crate::utils::from_tbl_proxy!({
     struct TypstPreview {
@@ -6,6 +9,13 @@ crate::utils::from_tbl_proxy!({
     }
 });
 impl NvimConf<'_> {
+    fn setup_typst_preview(&self) -> Result<()> {
+        self.setup_plugin::<TypstPreview>("typst-preview", |tps| {
+            tps.setup()?.call(tbl!(owned, {}))
+        })?;
+
+        Ok(())
+    }
     pub fn load_typst_lang(&self) {
         self.add_packs(["https://github.com/chomosuke/typst-preview.nvim"]);
 
@@ -19,14 +29,15 @@ impl NvimConf<'_> {
             }),
         );
 
-        // TODO: on filetype
-        self.on_very_lazy(|conf| {
-            conf.setup_plugin::<TypstPreview>("typst-preview", |tps| {
-                tps.setup()?.call(tbl!(owned, {}))
-            })?;
+        let lazy_load = self.create_sched_cb(|conf, ()| conf.setup_typst_preview());
 
-            Ok(())
-        })
-        .ok_or_notify(self);
+        self.add_autocmd(
+            "FileType",
+            mk_builder!(AutoCmdOpts, {
+                pattern = "typst";
+                callback = lazy_load;
+                once = true;
+            }),
+        );
     }
 }

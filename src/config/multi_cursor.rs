@@ -34,7 +34,7 @@ impl NvimConf<'_> {
         self.setup_plugin::<Multicursor>("multicursor-nvim", |mc| {
             mc.setup()?.call(tbl!(owned, {}))?;
             mc.addKeymapLayer()?.call(self.create_cb(|conf, setter| {
-                set_mc_layer(&conf, setter);
+                set_mc_layer(conf, setter);
                 Ok(())
             }))
         })

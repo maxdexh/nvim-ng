@@ -42,15 +42,20 @@ impl NvimConf<'_> {
         })
         .ok_or_notify(self.env());
     }
-    pub fn schedule(&self, f: impl FnOnce(NvimConf) -> Result<()> + 'static) -> Result<()> {
-        let cb = self.create_cb_once(|conf, ()| f(conf))?;
-        self.env().globals.vim()?.schedule()?.call(cb)
+    pub fn schedule_wrap<A, R>(&self, f: LuaCallable<A, R>) -> Result<LuaCallable<A, R>> {
+        self.env()
+            .globals
+            .vim()?
+            .schedule_wrap()?
+            .as_any()
+            .call_any(f.into_any())
+            .map(LuaCallable::cast_any_callable)
     }
-    pub fn on_very_lazy(&self, f: impl FnOnce(NvimConf) -> Result<()> + 'static) -> Result<()> {
-        let cb = self.create_cb_once(|conf, ()| conf.schedule(f))?;
+    pub fn on_very_lazy(&self, f: impl FnOnce(&NvimConf) -> Result<()> + 'static) -> Result<()> {
+        let cb = self.create_cb_once(|conf, ()| f(conf))?;
 
         let opts = mk_builder!(AutoCmdOpts, {
-            callback = cb;
+            callback = self.schedule_wrap(cb);
             once = true;
         });
 
@@ -84,11 +89,11 @@ impl NvimConf<'_> {
 
     pub fn create_cb<A: FromLuaMultiTyped>(
         &self,
-        f: impl Fn(NvimConf, A) -> Result<()> + 'static,
+        f: impl Fn(&NvimConf, A) -> Result<()> + 'static,
     ) -> Result<LuaCallable<A, ()>> {
         self.env().create_func(
             move |env, args| {
-                f(env.conf(), args).ok_or_notify(env);
+                f(&env.conf(), args).ok_or_notify(env);
                 Ok(())
             },
             |lua, err| {
@@ -97,9 +102,15 @@ impl NvimConf<'_> {
             },
         )
     }
+    pub fn create_sched_cb<A: FromLuaMultiTyped>(
+        &self,
+        f: impl Fn(&NvimConf, A) -> Result<()> + 'static,
+    ) -> Result<LuaCallable<A, ()>> {
+        self.create_cb(f).and_then(|cb| self.schedule_wrap(cb))
+    }
     pub fn create_cb_once<A: FromLuaMultiTyped>(
         &self,
-        f: impl FnOnce(NvimConf, A) -> Result<()> + 'static,
+        f: impl FnOnce(&NvimConf, A) -> Result<()> + 'static,
     ) -> Result<LuaCallable<A, ()>> {
         let func = std::sync::Mutex::new(Some(f));
         self.create_cb(move |env, args| {

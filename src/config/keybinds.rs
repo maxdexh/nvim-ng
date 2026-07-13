@@ -1,16 +1,16 @@
 use crate::{env::gvim::keymap::KeymapOpts, prelude::*};
 
 fn call_picker(
-    conf: NvimConf,
+    conf: &NvimConf,
     name: &str,
     args: impl LuaSub<Option<LuaDict<LuaVal>>>,
 ) -> Result<()> {
     conf.req_snacks()?.picker()?.get(name)?.call(args)
 }
-fn get_cwd(conf: NvimConf) -> Result<LuaString> {
+fn get_cwd(conf: &NvimConf) -> Result<LuaString> {
     conf.env().globals.vim()?.uv()?.cwd()?.call(())
 }
-fn get_root(conf: NvimConf) -> Result<LuaString> {
+fn get_root(conf: &NvimConf) -> Result<LuaString> {
     conf.req_snacks()
         .and_then(|snacks| snacks.git()?.get_root()?.call(()))?
         .map_or_else(|| get_cwd(conf), Ok)

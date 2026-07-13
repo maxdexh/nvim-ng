@@ -9,8 +9,7 @@ impl NvimConf<'_> {
             })]);
         }
 
-        // FIXME: Lazy
-        self.setup_plugin_now("blink.cmp", self.cmp_opts())
+        self.on_very_lazy(|conf| conf.setup_plugin_now("blink.cmp", conf.cmp_opts()))
             .ok_or_notify(self);
 
         self.add_packs([
@@ -33,7 +32,7 @@ impl NvimConf<'_> {
         })
         .ok_or_notify(self);
 
-        self.setup_plugin_now("luasnip", tbl!(owned, {}))
+        self.on_very_lazy(|conf| conf.setup_plugin_now("luasnip", tbl!(owned, {})))
             .ok_or_notify(self);
     }
 
