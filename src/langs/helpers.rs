@@ -44,9 +44,9 @@ impl NvimConf<'_> {
                 "--command",
             ])?;
             for arg in command {
-                table.raw_push(arg)?;
+                table.raw_push_any(arg)?;
             }
-            Ok(LuaSeq::cast_mlua_table(table))
+            Ok(LuaSeq::cast_table_any(table))
         }))
     }
 

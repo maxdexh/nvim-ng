@@ -411,12 +411,15 @@ mod into_impls {
 
             default!(defer_T);
         });
-        impl_into!({
-            #[params(T: IntoLuaTyped, F: FnOnce(&mlua::Lua) -> mlua::Result<T>)]
-            impl crate::lua::LuaDefer<F> {}
-
-            default!(defer_T);
-        });
+        const _: () = {
+            mk_defaults_except!(default_items, [], defer_T);
+            impl<T: IntoLuaTyped, F: FnOnce(&crate::lua::Lua) -> crate::lua::Result<T>> IntoLuaTyped
+                for crate::lua::LuaDefer<F>
+            {
+                default_items!();
+                add_bounds!({});
+            }
+        };
     };
     const _: () = {
         macro_rules! defer_to_LR_and {

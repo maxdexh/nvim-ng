@@ -19,7 +19,7 @@ pub mod __mac {
     ) -> LuaDeferImpl!(LuaMapOwned<K, V>) {
         lua_defer_val(|lua| {
             lua.create_table_from([(key, val)])
-                .map(LuaMapOwned::cast_mlua_table)
+                .map(LuaMapOwned::cast_table_any)
         })
     }
 
@@ -31,8 +31,8 @@ pub mod __mac {
         item: T,
     ) -> Result<LuaSeqOwned<LuaUnion<T, V>>> {
         let seq = seq.into_table_any();
-        seq.push(item)?;
-        Ok(LuaSeqOwned::cast_mlua_table(seq))
+        seq.push_any(item)?;
+        Ok(LuaSeqOwned::cast_table_any(seq))
     }
 
     pub const fn norm_raw_ident(s: &str) -> &str {
@@ -144,7 +144,7 @@ pub trait ResultExt {
 
     fn ok_or_notify(self, lua: impl AsLua) -> Option<Self::Ok>
     where
-        Self::Err: Into<LuaError>;
+        Self::Err: Into<Error>;
 }
 impl<T, E> ResultExt for std::result::Result<T, E> {
     type Ok = T;
@@ -152,13 +152,12 @@ impl<T, E> ResultExt for std::result::Result<T, E> {
 
     fn ok_or_notify(self, lua: impl AsLua) -> Option<T>
     where
-        E: Into<LuaError>,
+        E: Into<Error>,
     {
-        let res = self.map_err(Into::into);
-        match res {
+        match self {
             Ok(ok) => Some(ok),
             Err(err) => {
-                crate::env::lua_notify_err(Some(lua.as_lua()), err);
+                crate::env::lua_notify_err(Some(lua.as_lua()), err.into());
                 None
             }
         }
@@ -216,7 +215,6 @@ macro_rules! builder_struct {
                     $(crate::utils::__mac::field_name!($field).as_bytes()),*
                 ];
                 type Fields = ($($fty,)*);
-                type Repr = mlua::Table;
             }
             impl<$($field: crate::typing::LuaSub<$fty>),*> $gname<$($field),*> {
                 pub fn _finish(self) -> crate::lua::LuaStruct::<Self> {
@@ -292,7 +290,6 @@ macro_rules! from_tbl_struct {
                 $(crate::utils::__mac::field_name!($field).as_bytes()),*
             ];
             type Fields = ($($fieldty,)*);
-            type Repr = mlua::Table;
         }
     };
 }
@@ -308,7 +305,7 @@ macro_rules! from_tbl_proxy {
     }) => {
         #[derive(Clone, Debug)]
         $(#[$meta])*
-        pub struct $name { pub table: mlua::Table }
+        pub struct $name { pub table: crate::lua::LuaTableAny }
         impl mlua::FromLua for $name {
             fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
                 mlua::FromLua::from_lua(value, lua).map(|table| Self { table })
@@ -317,8 +314,8 @@ macro_rules! from_tbl_proxy {
         #[allow(non_snake_case)]
         impl $name {$(
             $(#[$fmeta])*
-            pub fn $field(&self) -> mlua::Result<$fieldty> {
-                self.table.get(crate::utils::__mac::field_name!($field))
+            pub fn $field(&self) -> crate::lua::Result<$fieldty> {
+                self.table.get_any(crate::utils::__mac::field_name!($field))
             }
         )*}
     };

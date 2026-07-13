@@ -42,15 +42,15 @@ impl NvimConf<'_> {
             let formatter: LuaString = lua_conv_sub(lua, formatter)?;
 
             let fmts = self.req_conform()?.formatters()?.into_table_any();
-            let settings = match fmts.get(formatter.clone())? {
+            let settings = match fmts.get_any(formatter.clone())? {
                 Some(s) => s,
                 None => {
                     let s = lua.create_table()?;
-                    fmts.set(formatter, s.clone())?;
+                    fmts.set_any(formatter, s.clone())?;
                     s
                 }
             };
-            settings.set("command", "nix")?;
+            settings.set_any("command", "nix")?;
             let prepend_args = self.lua().create_sequence_from([
                 "shell",
                 format!("nixpkgs#{package}").as_str(),
@@ -58,12 +58,12 @@ impl NvimConf<'_> {
                 cmd,
             ])?;
             let key = lua.create_string("prepend_args")?;
-            if let Some(t) = settings.get::<Option<mlua::Table>>(key.clone())? {
+            if let Some(t) = settings.get_any::<Option<mlua::Table>>(key.clone())? {
                 for v in t.sequence_values::<mlua::Value>() {
-                    prepend_args.raw_push(v?)?;
+                    prepend_args.raw_push_any(v?)?;
                 }
             }
-            settings.set(key, prepend_args)
+            settings.set_any(key, prepend_args)
         })
         .ok_or_notify(self);
     }

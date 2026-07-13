@@ -9,32 +9,33 @@ impl NvimConf<'_> {
 
             // disable all capabilities except the ones not provided by nixd
             {
-                let caps: mlua::Table = client.get("capabilities")?;
-                let td: mlua::Table = caps.get("textDocument")?;
+                let caps: LuaTableAny = client.get_any("capabilities")?;
+                let td: LuaTableAny = caps.get_any("textDocument")?;
 
                 client.set(
                     "capabilities",
                     tbl!(owned, {
                         workspace.semanticTokens = caps
-                            .get::<mlua::Table>("workspace")?
-                            .get::<LuaVal>("semanticTokens")?;
+                            .get_any::<LuaTableAny>("workspace")?
+                            .get_any::<LuaVal>("semanticTokens")?;
 
                         textDocument = tbl!(owned, {
-                            documentHighlight = td.get::<LuaVal>("documentHighlight")?;
-                            semanticTokens = td.get::<LuaVal>("semanticTokens")?;
+                            documentHighlight = td.get_any::<LuaVal>("documentHighlight")?;
+                            semanticTokens = td.get_any::<LuaVal>("semanticTokens")?;
                         });
                     }),
                 )?;
             }
             {
-                let caps: mlua::Table = client.get("server_capabilities")?;
+                let caps: LuaTableAny = client.get_any("server_capabilities")?;
                 client.set(
                     "server_capabilities",
                     tbl!(owned, {
-                        semanticTokensProvider = caps.get::<LuaVal>("semanticTokensProvider")?;
+                        semanticTokensProvider =
+                            caps.get_any::<LuaVal>("semanticTokensProvider")?;
                         documentHighlightProvider =
-                            caps.get::<LuaVal>("documentHighlightProvider")?;
-                        textDocumentSync = caps.get::<LuaVal>("textDocumentSync")?;
+                            caps.get_any::<LuaVal>("documentHighlightProvider")?;
+                        textDocumentSync = caps.get_any::<LuaVal>("textDocumentSync")?;
                     }),
                 )?;
             }

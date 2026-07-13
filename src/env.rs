@@ -35,6 +35,7 @@ pub fn lua_notify_err(lua: Option<&Lua>, err: impl std::fmt::Display) {
         return;
     };
     let msg = lua
+        .as_mlua()
         .traceback(Some(&msg_begin), 0)
         .map_err(|tb_err| {
             std::fmt::write(
@@ -68,8 +69,10 @@ impl Nvim {
         let env = self.clone();
         LuaDeferErr(
             self.lua
-                .create_function(move |_, args| f(&env, args))
-                .map(LuaCallable::from_mlua_func),
+                .as_mlua()
+                .create_function(move |_, args| f(&env, args).map_err(crate::lua::error_into_mlua))
+                .map(LuaCallable::from_mlua_func)
+                .map_err(Into::into),
         )
     }
 

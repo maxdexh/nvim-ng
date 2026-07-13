@@ -100,13 +100,15 @@ impl NvimConf<'_> {
         let func = std::sync::Mutex::new(Some(f));
         self.create_cb(move |env, args| {
             func.try_lock()
-                .or_else(|err| match err {
-                    std::sync::TryLockError::Poisoned(pe) => Ok(pe.into_inner()),
-                    std::sync::TryLockError::WouldBlock => Err(()),
-                })
-                .ok()
+                .map_or_else(
+                    |err| match err {
+                        std::sync::TryLockError::Poisoned(pe) => Some(pe.into_inner()),
+                        std::sync::TryLockError::WouldBlock => None,
+                    },
+                    Some,
+                )
                 .and_then(|mut it| it.take())
-                .ok_or_else(|| LuaError::runtime("callback can only be called once"))
+                .ok_or_else(|| anyhow::anyhow!("callback can only be called once"))
                 .and_then(|f| f(env, args))
         })
     }
