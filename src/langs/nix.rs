@@ -4,39 +4,50 @@ impl NvimConf<'_> {
     pub fn load_nix_lang(&self) {
         self.ft_set_indent("nix", 2);
 
-        let on_init = self.create_cb(|_, client: LuaDictMut<LuaVal>| {
+        let on_init = self.create_cb(|conf, client: LuaDictMut<LuaVal>| {
             let client = client.into_table_any();
 
             // disable all capabilities except the ones not provided by nixd
+            let lua = conf.lua();
             {
-                let caps: LuaTableAny = client.get_any("capabilities")?;
-                let td: LuaTableAny = caps.get_any("textDocument")?;
+                let caps_key = lua.create_string("capabilities")?;
+                let td_key = lua.create_string("textDocument")?;
+                let sem_tok_key = lua.create_string("semanticTokens")?;
+                let doc_hl_key = lua.create_string("documentHighlight")?;
+                let ws_key = lua.create_string("workspace")?;
 
-                client.set(
-                    "capabilities",
+                let caps: LuaTableAny = client.get_any(caps_key.clone())?;
+                let td: LuaTableAny = caps.get_any(td_key.clone())?;
+
+                client.set_any(
+                    caps_key,
                     tbl!(owned, {
-                        workspace.semanticTokens = caps
-                            .get_any::<LuaTableAny>("workspace")?
-                            .get_any::<LuaVal>("semanticTokens")?;
+                        [ws_key.clone()] = tbl!(owned, {
+                            [sem_tok_key.clone()] = caps
+                                .get_any::<LuaTableAny>(ws_key)?
+                                .get_any::<LuaVal>(sem_tok_key.clone())?;
+                        });
 
-                        textDocument = tbl!(owned, {
-                            documentHighlight = td.get_any::<LuaVal>("documentHighlight")?;
-                            semanticTokens = td.get_any::<LuaVal>("semanticTokens")?;
+                        [td_key] = tbl!(owned, {
+                            [doc_hl_key.clone()] = td.get_any::<LuaVal>(doc_hl_key)?;
+                            [sem_tok_key.clone()] = td.get_any::<LuaVal>(sem_tok_key)?;
                         });
                     }),
                 )?;
             }
             {
-                let caps: LuaTableAny = client.get_any("server_capabilities")?;
-                client.set(
-                    "server_capabilities",
-                    tbl!(owned, {
-                        semanticTokensProvider =
-                            caps.get_any::<LuaVal>("semanticTokensProvider")?;
-                        documentHighlightProvider =
-                            caps.get_any::<LuaVal>("documentHighlightProvider")?;
-                        textDocumentSync = caps.get_any::<LuaVal>("textDocumentSync")?;
-                    }),
+                let scap_key = lua.create_string("server_capabilities")?;
+                let caps: LuaTableAny = client.get_any(scap_key.clone())?;
+                client.set_any(
+                    scap_key,
+                    lua.create_table_from(
+                        [
+                            lua.create_string("semanticTokensProvider")?,
+                            lua.create_string("documentHighlightProvider")?,
+                            lua.create_string("textDocumentSync")?,
+                        ]
+                        .map(|key| (key.clone(), caps.get_any::<LuaVal>(key))),
+                    ),
                 )?;
             }
 

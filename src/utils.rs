@@ -83,7 +83,7 @@ macro_rules! tbl {
     };
     (out($table:expr), {$( $t:tt )*}) => {{
         let out = $table;
-        crate::utils::do_try(move || {
+        crate::utils::do_try(|| {
             #[allow(unused_imports)]
             use crate::lua::LuaTableSet as _;
             crate::utils::tbl! { @visit out $($t)* }
@@ -156,7 +156,7 @@ impl<T, E> ResultExt for std::result::Result<T, E> {
         match self {
             Ok(ok) => Some(ok),
             Err(err) => {
-                crate::env::lua_notify_err(Some(lua.as_lua()), err.into());
+                crate::env::lua_notify_err(Some(lua.lua()), err.into());
                 None
             }
         }

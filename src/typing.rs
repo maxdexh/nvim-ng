@@ -1,5 +1,5 @@
 pub mod logic {
-    // TODO: Add bound that Or<True> = True once needed
+    // NOTE: Can add bound for Or<True> = True if needed
     pub trait Bool {
         type And<R: Bool>: Bool;
         type Or<R: Bool>: Bool;

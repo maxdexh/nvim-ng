@@ -170,7 +170,6 @@ const _: () = {
 impl<T: PushLua, const N: usize> PushLua for [T; N] {
     type IntoRepr = [T::IntoRepr; N];
     fn into_mlua(self) -> Result<Self::IntoRepr> {
-        // TODO: Optimize
         let arr = self.map(T::into_mlua);
         if arr.iter().any(|it| it.is_err()) {
             std::hint::cold_path();
@@ -434,7 +433,6 @@ impl<A, R> LuaCallable<A, R> {
         A: FromLuaMultiTyped,
         R: PopLuaMulti,
     {
-        // TODO: Optional validation
         self.as_any().call_any(args)
     }
 
@@ -481,19 +479,6 @@ impl<T: LuaTableGet> LuaTableGet for &T {
 impl<T: LuaTableSet> LuaTableSet for &T {
     fn set(&self, key: impl LuaSub<Self::Key>, val: impl LuaSub<Self::Val>) -> Result<()> {
         T::set(self, key, val)
-    }
-}
-// TODO: Remove?
-impl LuaTableGet for LuaTableAny {
-    type Key = mlua::Value;
-    type Val = mlua::Value;
-    fn get(&self, key: impl LuaSub<Self::Key>) -> Result<Self::Val> {
-        self.get_any(key)
-    }
-}
-impl LuaTableSet for LuaTableAny {
-    fn set(&self, key: impl LuaSub<Self::Key>, val: impl LuaSub<Self::Val>) -> Result<()> {
-        self.set_any(key, val)
     }
 }
 
@@ -566,7 +551,7 @@ const _: () = {
             {
                 fn set(&self, k: impl LuaSub<$k>, v: impl LuaSub<$v>) -> Result<()> {
                     // TODO: Optional Validation
-                    self.0.set(k, v)
+                    self.0.set_any(k, v)
                 }
             }
             impl<$($g)*> crate::lua::PopLua for $t
@@ -593,7 +578,7 @@ const _: () = {
             {
                 fn set(&self, k: impl LuaSub<$k>, v: impl LuaSub<$v>) -> Result<()> {
                     // TODO: Optional Validation
-                    self.0.set(k, v)
+                    self.0.set_any(k, v)
                 }
             }
         };
@@ -609,7 +594,7 @@ const _: () = {
 pub struct LuaDefer<F>(pub F);
 impl<T, F: FnOnce(&Lua) -> T> LuaDefer<F> {
     pub fn eval(self, lua: impl AsLua) -> T {
-        self.0(lua.as_lua())
+        self.0(lua.lua())
     }
 }
 pub fn lua_defer_val<T, F: FnOnce(&Lua) -> Result<T>>(f: F) -> LuaDefer<F> {
@@ -677,20 +662,20 @@ impl<T: LuaStructInner + PopLua> PopLua for LuaStruct<T> {
 }
 
 pub trait AsLua {
-    fn as_lua(&self) -> &Lua;
+    fn lua(&self) -> &Lua;
 }
 impl<T: AsLua> AsLua for &T {
-    fn as_lua(&self) -> &Lua {
-        T::as_lua(self)
+    fn lua(&self) -> &Lua {
+        T::lua(self)
     }
 }
 impl AsLua for Lua {
-    fn as_lua(&self) -> &Lua {
+    fn lua(&self) -> &Lua {
         self
     }
 }
 impl AsLua for mlua::Lua {
-    fn as_lua(&self) -> &Lua {
+    fn lua(&self) -> &Lua {
         Lua::by_mlua(self)
     }
 }

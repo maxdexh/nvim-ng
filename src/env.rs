@@ -84,13 +84,13 @@ impl Nvim {
     }
 }
 impl AsLua for Nvim {
-    fn as_lua(&self) -> &Lua {
+    fn lua(&self) -> &Lua {
         &self.lua
     }
 }
 impl AsLua for NvimConf<'_> {
-    fn as_lua(&self) -> &Lua {
-        self.lua()
+    fn lua(&self) -> &Lua {
+        &self.env().lua
     }
 }
 
@@ -105,9 +105,5 @@ impl crate::prelude::Nvim {
 impl NvimConf<'_> {
     pub fn env(&self) -> &crate::prelude::Nvim {
         self.0
-    }
-    #[allow(dead_code)]
-    pub fn lua(&self) -> &Lua {
-        &self.env().lua
     }
 }
