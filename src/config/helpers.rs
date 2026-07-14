@@ -123,8 +123,7 @@ impl NvimConf<'_> {
                     Some,
                 )
                 .and_then(|mut it| it.take())
-                .ok_or_else(|| anyhow::anyhow!("callback can only be called once"))
-                .and_then(|f| f(env, args))
+                .map_or(Ok(()), |f| f(env, args))
         })
     }
     pub fn setup_plugin_now(&self, name: &str, opts: impl LuaSub<LuaDict<LuaVal>>) -> Result<()> {

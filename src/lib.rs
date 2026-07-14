@@ -2,6 +2,7 @@ mod entry_point;
 mod env;
 
 mod config;
+mod error;
 mod langs;
 mod lua;
 mod prelude;

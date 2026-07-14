@@ -198,8 +198,7 @@ macro_rules! builder_struct {
                     let table = lua.create_table()?;
                     let Self { $($field),* } = self;
                     $({
-                        let val = crate::lua::PushLua::into_mlua($field)
-                            .map_err(crate::lua::mlua_mk_or_recover_error)?;
+                        let val = crate::lua::PushLua::into_mlua($field)?;
                         table.raw_set(crate::utils::__mac::field_name!($field), val)?;
                     })*
                     Ok(mlua::Value::Table(table))

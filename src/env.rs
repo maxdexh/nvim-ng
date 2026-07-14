@@ -73,10 +73,10 @@ impl Nvim {
             .create_function(move |lua, args| {
                 A::from_mlua_multi(args)
                     .and_then(|args| f(&env, args).and_then(|it| it.into_mlua_multi()))
-                    .or_else(|err| err_handler(Lua::by_mlua(lua), err))
+                    .or_else(|err| err_handler(lua.lua(), err))
             })
             .map(LuaCallable::from_mlua_func)
-            .map_err(crate::lua::mlua_into_error)
+            .map_err(Into::into)
     }
 
     pub fn require<T: PopLua>(&self, name: impl LuaSub<LuaString>) -> Result<T> {

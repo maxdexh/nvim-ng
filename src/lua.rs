@@ -1,21 +1,8 @@
 use crate::prelude::*;
 use std::marker::PhantomData;
 
-pub type Error = anyhow::Error;
+pub type Error = crate::error::Error;
 pub type Result<T, E = Error> = std::result::Result<T, E>;
-
-mod error {
-    // TODO: Make sure that context and backtraces are not lost
-    #[cold]
-    pub fn mlua_into_error(err: mlua::Error) -> super::Error {
-        err.into()
-    }
-    #[cold]
-    pub fn mlua_mk_or_recover_error(err: super::Error) -> mlua::Error {
-        err.into()
-    }
-}
-pub use error::{mlua_into_error, mlua_mk_or_recover_error};
 
 pub trait PushLua: Sized {
     type IntoRepr: mlua::IntoLua;
@@ -205,10 +192,7 @@ impl<L: PopLua, R: PopLua> PopLua for LuaUnion<L, R> {
 struct TranslateMlua<T>(T);
 impl<T: PushLua> mlua::IntoLua for TranslateMlua<T> {
     fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
-        self.0
-            .into_mlua()
-            .map_err(mlua_mk_or_recover_error)
-            .and_then(|it| mlua::IntoLua::into_lua(it, lua))
+        mlua::IntoLua::into_lua(self.0.into_mlua()?, lua)
     }
 }
 
@@ -219,7 +203,7 @@ impl Lua {
     pub fn as_mlua(&self) -> &mlua::Lua {
         &self.0
     }
-    pub fn by_mlua(lua: &mlua::Lua) -> &Self {
+    fn by_mlua(lua: &mlua::Lua) -> &Self {
         // SAFETY: repr(transparent)
         unsafe { &*std::ptr::from_ref(lua).cast() }
     }
@@ -227,13 +211,10 @@ impl Lua {
         Self(lua)
     }
     pub fn create_string(&self, s: impl AsRef<[u8]>) -> Result<LuaString> {
-        self.as_mlua().create_string(s).map_err(mlua_into_error)
+        self.as_mlua().create_string(s).map_err(Into::into)
     }
     pub fn create_table(&self) -> Result<LuaTableAny> {
-        self.as_mlua()
-            .create_table()
-            .map(LuaTableAny)
-            .map_err(mlua_into_error)
+        Ok(LuaTableAny(self.as_mlua().create_table()?))
     }
     pub fn create_sequence_from<T: PushLua>(
         &self,
@@ -242,7 +223,7 @@ impl Lua {
         self.as_mlua()
             .create_sequence_from(iter.into_iter().map(TranslateMlua))
             .map(LuaTableAny)
-            .map_err(mlua_into_error)
+            .map_err(Into::into)
     }
     pub fn create_table_from<K: PushLua, V: PushLua>(
         &self,
@@ -254,12 +235,12 @@ impl Lua {
                     .map(|(k, v)| (TranslateMlua(k), TranslateMlua(v))),
             )
             .map(LuaTableAny)
-            .map_err(mlua_into_error)
+            .map_err(Into::into)
     }
     pub fn convert<R: PopLua>(&self, val: impl PushLua) -> Result<R> {
         self.as_mlua()
             .convert(val.into_mlua()?)
-            .map_err(mlua_into_error)
+            .map_err(Into::into)
             .and_then(|it| R::from_mlua(it))
     }
     pub fn globals(&self) -> LuaTableAny {
@@ -312,24 +293,24 @@ impl LuaTableAny {
     pub fn get_any<R: PopLua>(&self, key: impl PushLua) -> Result<R> {
         self.0
             .get(key.into_mlua()?)
-            .map_err(mlua_into_error)
+            .map_err(Into::into)
             .and_then(R::from_mlua)
     }
     pub fn set_any(&self, key: impl PushLua, val: impl PushLua) -> Result<()> {
         self.0
             .set(key.into_mlua()?, val.into_mlua()?)
-            .map_err(mlua_into_error)
+            .map_err(Into::into)
     }
     pub fn push_any(&self, val: impl PushLua) -> Result<()> {
-        self.0.push(val.into_mlua()?).map_err(mlua_into_error)
+        self.0.push(val.into_mlua()?).map_err(Into::into)
     }
     pub fn raw_push_any(&self, val: impl PushLua) -> Result<()> {
-        self.0.raw_push(val.into_mlua()?).map_err(mlua_into_error)
+        self.0.raw_push(val.into_mlua()?).map_err(Into::into)
     }
     pub fn sequence_values<T: PopLua>(&self) -> impl IntoIterator<Item = Result<T>> {
         self.0
             .sequence_values()
-            .map(|it| it.map_err(mlua_into_error).and_then(T::from_mlua))
+            .map(|it| it.map_err(Into::into).and_then(T::from_mlua))
     }
 }
 impl PushLua for LuaTableAny {
@@ -359,7 +340,7 @@ impl LuaCallableAny {
             Self::Data(data) => data.call(args.into_mlua_multi()?),
             Self::Table(table) => table.call(args.into_mlua_multi()?),
         }
-        .map_err(mlua_into_error)
+        .map_err(Into::into)
         .and_then(R::from_mlua_multi)
     }
 }
@@ -603,7 +584,7 @@ impl<T: PushLua, F: FnOnce(&Lua) -> T> mlua::IntoLua for LuaDefer<F> {
     fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<LuaVal> {
         self.eval(lua)
             .into_mlua()
-            .map_err(mlua_mk_or_recover_error)
+            .map_err(Into::into)
             .and_then(|it| mlua::IntoLua::into_lua(it, lua))
     }
 }
