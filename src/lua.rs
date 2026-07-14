@@ -203,13 +203,6 @@ impl<L: PopLua, R: PopLua> PopLua for LuaUnion<L, R> {
 }
 
 struct TranslateMlua<T>(T);
-impl<T: PopLua> mlua::FromLua for TranslateMlua<T> {
-    fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
-        mlua::FromLua::from_lua(value, lua)
-            .and_then(|it| T::from_mlua(it).map_err(mlua_mk_or_recover_error))
-            .map(Self)
-    }
-}
 impl<T: PushLua> mlua::IntoLua for TranslateMlua<T> {
     fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
         self.0
