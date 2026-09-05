@@ -24,6 +24,31 @@ impl NvimConf<'_> {
                 desc = "Prev Buffer";
             }),
         );
+
+        self.set_keymap(
+            "n",
+            "<leader>bd",
+            "<CMD>bd<CR>",
+            mk_builder!(KeymapOpts, {
+                desc = "Close Buffer";
+            }),
+        );
+        self.set_keymap(
+            "n",
+            "<leader>bl",
+            "<CMD>BufferLineCloseLeft<CR>",
+            mk_builder!(KeymapOpts, {
+                desc = "Close Buffers Left";
+            }),
+        );
+        self.set_keymap(
+            "n",
+            "<leader>br",
+            "<CMD>BufferLineCloseRight<CR>",
+            mk_builder!(KeymapOpts, {
+                desc = "Close Buffers Right";
+            }),
+        );
     }
 
     fn bufferline_opts(&self) -> impl LuaSub<LuaDict<LuaVal>> {

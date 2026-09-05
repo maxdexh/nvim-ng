@@ -1,5 +1,7 @@
 use crate::{env::gvim::keymap::KeymapOpts, prelude::*};
 
+// FIXME: Replace this with 0.13 multicursor
+
 type NvimKeymapSet = LuaCallable<
     (
         LuaUnion<LuaString, LuaSeq<LuaString>>,
