@@ -1,3 +1,5 @@
+-- FIXME: Keep build artifacts for faster startup & fallback
+
 local config_path = vim.fn.stdpath("config") --[[@as string]]
 local output = vim.system({
 	"cargo",
