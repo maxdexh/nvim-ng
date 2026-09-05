@@ -13,6 +13,8 @@ impl NvimConf<'_> {
                 fillchars = tbl!(owned, {
                     eob = " ";
                 });
+                // TODO: format-based override
+                wrap = false;
             })
         })
         .ok_or_notify(self);

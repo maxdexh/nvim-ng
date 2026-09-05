@@ -47,8 +47,13 @@ macro_rules! supply_backtrace {
         }
     };
 }
+
 #[cold]
-fn from_arc_dyn(inner: Arc<dyn error::Error + Send + Sync>) -> ErrorMaybeBt {
+fn from_arc_dyn(mut inner: Arc<dyn error::Error + Send + Sync>) -> ErrorMaybeBt {
+    inner = match downcast_arc_error::<Arc<mlua::Error>>(inner) {
+        Ok(error) => return from_arc_mlua(Arc::unwrap_or_clone(error)),
+        Err(error) => error,
+    };
     match downcast_arc_error::<mlua::Error>(inner) {
         Ok(error) => from_arc_mlua(error),
         Err(error) => from_arc_dyn_ignore_mlua(error),
@@ -141,16 +146,13 @@ impl From<Error> for mlua::Error {
         mlua::Error::ExternalError(inner)
     }
 }
-impl From<Arc<mlua::Error>> for Error {
+impl<E> From<E> for Error
+where
+    E: error::Error + Send + Sync + 'static,
+{
     #[cold]
-    fn from(value: Arc<mlua::Error>) -> Self {
-        supply_backtrace!(from_arc_mlua(value))
-    }
-}
-impl From<mlua::Error> for Error {
-    #[cold]
-    fn from(value: mlua::Error) -> Self {
-        supply_backtrace!(from_mlua(value))
+    fn from(value: E) -> Self {
+        supply_backtrace!(from_arc_dyn(Arc::new(value)))
     }
 }
 

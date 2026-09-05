@@ -13,7 +13,6 @@ impl NvimConf<'_> {
         self.add_packs(["https://github.com/stevearc/conform.nvim"]);
     }
     fn req_conform(&self) -> Result<Conform> {
-        // FIXME: Timeout triggers when installing from nixpkgs
         // FIXME: Keybind to toggle formatting
         self.setup_plugin::<Conform>("conform", |conform| {
             conform.setup()?.call(tbl!(owned, {
@@ -36,6 +35,26 @@ impl NvimConf<'_> {
         .ok_or_notify(self);
     }
     pub fn formatter_use_nix(&self, formatter: &str, package: &str, cmd: &str) {
+        let flake = std::sync::Arc::<str>::from(format!("nixpkgs#{package}"));
+
+        // HACK: Prebuild the flake so that conform doesn't timeout later
+        {
+            let flake = flake.clone();
+            std::thread::spawn(move || {
+                std::process::Command::new("nix")
+                    .arg("build")
+                    .arg("--no-link")
+                    .arg(&*flake)
+                    .stdin(std::process::Stdio::null())
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .spawn()
+                    .unwrap()
+                    .wait()
+                    .unwrap();
+            });
+        }
+
         do_try(|| {
             let lua = self.lua();
 
@@ -53,9 +72,9 @@ impl NvimConf<'_> {
             settings.set_any("command", "nix")?;
             let prepend_args = self.lua().create_sequence_from([
                 "shell",
-                format!("nixpkgs#{package}").as_str(),
+                &flake,
                 "--command",
-                cmd,
+                cmd, //
             ])?;
             let key = lua.create_string("prepend_args")?;
             if let Some(t) = settings.get_any::<Option<LuaTableAny>>(key.clone())? {
