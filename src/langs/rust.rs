@@ -24,6 +24,12 @@ impl NvimConf<'_> {
         let ra_opts = tbl!(owned, {
             assist = tbl!(owned, {
                 preferSelf = true;
+                // rustc = tbl!(owned, {
+                //     source = "discover";
+                // });
+                // cargo = tbl!(owned, {
+                //     target = "";
+                // });
             });
         });
 

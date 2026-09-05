@@ -10,6 +10,9 @@ impl NvimConf<'_> {
                 number = true;
                 relativenumber = true;
                 undofile = true;
+                fillchars = tbl!(owned, {
+                    eob = " ";
+                });
             })
         })
         .ok_or_notify(self);
