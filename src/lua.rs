@@ -496,6 +496,11 @@ const _: () = {
                     self.0.get_any(k)
                 }
             }
+            impl<$($g)*> Clone for $t {
+                fn clone(&self) -> Self {
+                    Self(self.0.clone(), self.1)
+                }
+            }
         };
     }
     macro_rules! g_tbl_prox_impl_const {

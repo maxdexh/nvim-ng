@@ -18,6 +18,24 @@ pub struct Nvim {
     pub registry: crate::registry::Registry,
 }
 
+pub enum NotifyLevel {
+    Error,
+    Warn,
+    Info,
+}
+
+pub fn lua_do_notify(lua: &Lua, msg: impl LuaSub<LuaString>, level: NotifyLevel) -> Result<()> {
+    let vim = lua.convert::<Globals>(lua.globals())?.vim()?;
+    vim.notify()?.call((msg, {
+        let levels = vim.log()?.levels()?;
+        match level {
+            NotifyLevel::Error => levels.ERROR()?,
+            NotifyLevel::Warn => levels.WARN()?,
+            NotifyLevel::Info => levels.INFO()?,
+        }
+    }))
+}
+
 #[cold]
 pub fn lua_notify_err(lua: Option<&Lua>, err: impl std::fmt::Display) {
     let mut msg_begin = format!(
@@ -47,11 +65,11 @@ pub fn lua_notify_err(lua: Option<&Lua>, err: impl std::fmt::Display) {
         })
         .map_or_else(mlua::Either::Left, mlua::Either::Right);
 
-    () = do_try(|| {
-        let vim = lua.convert::<Globals>(lua.globals())?.vim()?;
-        let msg = msg.as_ref().map_left(std::ops::Deref::deref);
-        vim.notify()?.call((msg, vim.log()?.levels()?.ERROR()?))
-    })
+    () = lua_do_notify(
+        lua,
+        msg.as_ref().map_left(std::ops::Deref::deref),
+        NotifyLevel::Error,
+    )
     .unwrap_or_else(|notify_err| {
         eprintln!("Failed to notify: {notify_err}\n");
         match msg {

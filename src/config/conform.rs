@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{env::gvim::keymap::KeymapOpts, prelude::*};
 
 crate::utils::from_tbl_proxy!({
     struct Conform {
@@ -13,13 +13,58 @@ impl NvimConf<'_> {
         self.add_packs(["https://github.com/stevearc/conform.nvim"]);
     }
     fn req_conform(&self) -> Result<Conform> {
-        // FIXME: Keybind to toggle formatting
+        use std::sync::atomic::{AtomicBool, Ordering};
+        #[derive(Default)]
+        struct EnableFmt {
+            disabled: AtomicBool,
+        }
+        let fmt_on_save = {
+            let opts_tbl = tbl!(owned, {
+                timeout_ms = 500;
+                lsp_format = "fallback";
+            })
+            .eval(self)?;
+            self.create_func(move |conf, ()| {
+                let enabled = !conf
+                    .env()
+                    .registry
+                    .get_or_default::<EnableFmt>()
+                    .disabled
+                    .load(Ordering::Relaxed);
+                Ok(enabled.then(|| opts_tbl.clone()))
+            })?
+        };
+        let toggle_fmt_on_save = self.create_cb(|conf, ()| {
+            let enabled = conf
+                .env()
+                .registry
+                .get_or_default::<EnableFmt>()
+                .disabled
+                .fetch_not(Ordering::Relaxed);
+
+            conf.notify(
+                if enabled {
+                    "enabled format on save"
+                } else {
+                    "disabled format on save"
+                },
+                NotifyLevel::Info,
+            );
+
+            Ok(())
+        });
+        self.set_keymap(
+            "n",
+            "<leader>uf",
+            toggle_fmt_on_save,
+            mk_builder!(KeymapOpts, {
+                desc = "Toggle Formatter";
+            }),
+        );
+
         self.setup_plugin::<Conform>("conform", |conform| {
             conform.setup()?.call(tbl!(owned, {
-                format_on_save = tbl!(owned, {
-                    timeout_ms = 500;
-                    lsp_format = "fallback";
-                });
+                format_on_save = fmt_on_save;
             }))
         })
     }

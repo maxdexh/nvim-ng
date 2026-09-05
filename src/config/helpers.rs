@@ -69,6 +69,9 @@ impl NvimConf<'_> {
     pub fn run_cmd(&self, cmd: impl LuaSub<LuaString>) {
         do_try(|| self.env().globals.vim()?.cmd()?.call(cmd)).ok_or_notify(self.env());
     }
+    pub fn notify(&self, msg: impl LuaSub<LuaString>, level: NotifyLevel) {
+        crate::env::lua_do_notify(self.lua(), msg, level).ok_or_notify(self);
+    }
     pub fn set_keymap(
         &self,
         modes: impl LuaSub<LuaUnion<LuaString, LuaSeq<LuaString>>>,
@@ -100,6 +103,15 @@ impl NvimConf<'_> {
                 Err::<(), _>(err).ok_or_notify(lua);
                 Ok(())
             },
+        )
+    }
+    pub fn create_func<A: FromLuaMultiTyped, R: IntoLuaMultiTyped>(
+        &self,
+        f: impl Fn(&NvimConf, A) -> Result<R> + 'static,
+    ) -> Result<LuaCallable<A, R>> {
+        self.env().create_func(
+            move |env, args| f(&env.conf(), args),
+            |_, err| Err(err.into()),
         )
     }
     pub fn create_sched_cb<A: FromLuaMultiTyped>(
