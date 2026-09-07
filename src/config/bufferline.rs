@@ -52,6 +52,11 @@ impl NvimConf<'_> {
     }
 
     fn bufferline_opts(&self) -> impl LuaSub<LuaDict<LuaVal>> {
-        tbl!(owned, {})
+        // TODO: Set diagnostics_indicator
+        tbl!(owned, {
+            options = tbl!(owned, {
+                diagnostics = "nvim_lsp";
+            });
+        })
     }
 }
