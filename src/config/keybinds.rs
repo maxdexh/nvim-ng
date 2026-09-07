@@ -172,6 +172,8 @@ impl NvimConf<'_> {
                 }),
             );
         }
+
+        // NOTE: This has a builtin bind: <c-w>d
         self.set_keymap(
             "n",
             "<leader>xc",
@@ -243,15 +245,6 @@ impl NvimConf<'_> {
             }),
         );
 
-        self.set_keymap(
-            "n",
-            "<leader>bd",
-            "<CMD>bd<CR>",
-            mk_builder!(KeymapOpts, {
-                desc = "Delete buffer and window";
-            }),
-        );
-
         macro_rules! resize {
             ($k:expr, $pref:expr, $v:expr, $desc:expr) => {
                 self.set_keymap(
@@ -285,5 +278,36 @@ impl NvimConf<'_> {
         goto_window!("k", "up");
         goto_window!("h", "left");
         goto_window!("l", "right");
+
+        macro_rules! diag_jump_base {
+            ($kb:expr, $count:expr, $sev:expr, $adj:expr) => {
+                self.set_keymap(
+                    "n",
+                    $kb,
+                    self.create_cb(|conf, ()| {
+                        conf.env()
+                            .globals
+                            .vim()?
+                            .diagnostic()?
+                            .jump()?
+                            .call(tbl!(owned, {
+                                count = $count;
+                                severity = $sev;
+                            }))
+                    }),
+                    mk_builder!(KeymapOpts, {
+                        desc = concat!("Go to ", $adj, " ", $sev);
+                    }),
+                )
+            };
+        }
+        macro_rules! diag_jump {
+            ($k:expr, $sev:expr) => {
+                diag_jump_base!(concat!("[", $k), -1, $sev, "previous");
+                diag_jump_base!(concat!("]", $k), 1, $sev, "previous");
+            };
+        }
+        diag_jump!("e", "error");
+        diag_jump!("w", "warn");
     }
 }
