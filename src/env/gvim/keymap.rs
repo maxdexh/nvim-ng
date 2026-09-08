@@ -17,5 +17,6 @@ crate::utils::from_tbl_proxy!({
 crate::utils::builder_struct!({
     struct KeymapOpts {
         desc: LuaString,
+        expr: Option<bool>,
     }
 });

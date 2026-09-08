@@ -18,6 +18,19 @@ fn get_root(conf: &NvimConf) -> Result<LuaString> {
 impl NvimConf<'_> {
     pub fn load_keybinds(&self) {
         self.set_keymap(
+            ["i", "n", "s"],
+            "<esc>",
+            self.create_func(|conf, ()| {
+                conf.env().globals.vim()?.cmd()?.call("noh")?;
+                Ok("<esc>")
+            }),
+            mk_builder!(KeymapOpts, {
+                desc = "Escape and clear hlsearch";
+                expr = true;
+            }),
+        );
+
+        self.set_keymap(
             "n",
             "<leader>sx",
             self.create_cb(|conf, ()| call_picker(conf, "resume", LuaNil)),
