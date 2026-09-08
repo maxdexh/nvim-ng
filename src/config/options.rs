@@ -15,6 +15,10 @@ impl NvimConf<'_> {
                 });
                 // TODO: format-based override
                 wrap = false;
+
+                // This is done by lazyvim and makes <c-o> jump between buffers.
+                // As this is part of my muscle memory, keep it for now.
+                jumpoptions = "view";
             })
         })
         .ok_or_notify(self);
