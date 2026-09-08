@@ -22,6 +22,7 @@ impl Nvim {
         conf.load_whichkey();
         conf.load_completions();
         conf.load_bufferline();
+        conf.load_statusline();
         conf.load_conform();
         conf.load_oil();
         conf.load_gitsigns();

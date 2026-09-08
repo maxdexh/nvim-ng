@@ -17,5 +17,6 @@ mod oil;
 mod options;
 mod persistence;
 mod snacks;
+mod statusline;
 mod treesitter;
 mod whichkey;
