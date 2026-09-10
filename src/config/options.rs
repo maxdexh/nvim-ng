@@ -19,6 +19,10 @@ impl NvimConf<'_> {
                 // This is done by lazyvim and makes <c-o> jump between buffers.
                 // As this is part of my muscle memory, keep it for now.
                 jumpoptions = "view";
+
+                // make search case insensitive unless you add \C or an uppercase letter
+                ignorecase = true;
+                smartcase = true;
             })
         })
         .ok_or_notify(self);
