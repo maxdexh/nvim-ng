@@ -3,27 +3,58 @@ pub mod logic {
     pub trait Bool {
         type And<R: Bool>: Bool;
         type Or<R: Bool>: Bool;
+        type Not: Bool;
+        type Xnor<R: Bool>: Bool;
     }
     pub struct True;
     pub struct False;
     impl Bool for True {
         type And<R: Bool> = R;
         type Or<R: Bool> = True;
+        type Not = False;
+        type Xnor<R: Bool> = R;
     }
     impl Bool for False {
         type And<R: Bool> = False;
         type Or<R: Bool> = R;
+        type Not = True;
+        type Xnor<R: Bool> = R::Not;
     }
     pub type And<L, R> = <L as Bool>::And<R>;
     pub type Or<L, R> = <L as Bool>::Or<R>;
+
+    pub trait BitSeq {
+        type IsEmpty: Bool;
+        type Pop: BitSeq;
+        type Last: Bool;
+        type Eq<R: BitSeq>: Bool;
+    }
+    impl BitSeq for () {
+        type IsEmpty = True;
+        type Pop = Self;
+        type Last = False;
+        type Eq<R: BitSeq> = R::IsEmpty;
+    }
+    impl<S: BitSeq, B: Bool> BitSeq for (S, B) {
+        type IsEmpty = False;
+        type Pop = S;
+        type Last = B;
+        type Eq<R: BitSeq> = And<B::Xnor<R::Last>, <R::Pop as BitSeq>::Eq<S>>;
+    }
 }
-use logic::*;
+use logic::{And, Bool, False, Or, True};
 
 pub trait LuaIsSub<Dst>: IntoLuaTyped {
     type IsSub: Bool;
 }
+
+#[cfg(feature = "typeck")]
 impl<T: IntoLuaTyped, U: FromLuaTyped> LuaIsSub<U> for T {
     type IsSub = U::IsFrom<T>;
+}
+#[cfg(not(feature = "typeck"))]
+impl<T: IntoLuaTyped, U: FromLuaTyped> LuaIsSub<U> for T {
+    type IsSub = True;
 }
 
 pub trait LuaSub<Base>: LuaIsSub<Base, IsSub = True> {}
@@ -57,6 +88,8 @@ pub trait IntoLuaTyped: crate::lua::PushLua {
     type IsTableMapMut<K: IntoLuaTyped + FromLuaTyped, V: IntoLuaTyped + FromLuaTyped>: Bool;
     type IsCallableWith<A: IntoLuaMultiTyped, R: FromLuaMultiTyped>: Bool;
     type IsStruct<Fields: IntoLuaMultiTyped + FromLuaMultiTyped>: Bool;
+
+    type IsNominalId<Id: logic::BitSeq>: Bool;
 }
 pub type IsInto<Src, Dst> = <Src as LuaIsSub<Dst>>::IsSub;
 pub type IsEquiv<T, U> = And<IsInto<T, U>, IsInto<U, T>>;
@@ -121,6 +154,9 @@ mod into_impls {
         (@sel IsStruct, $name:ident, $val:ty, [$Fs:ident]) => {
             type $name<$Fs: crate::typing::IntoLuaMultiTyped + crate::typing::FromLuaMultiTyped> = $val;
         };
+        (@sel IsNominalId, $name:ident, $val:ty, [$Id:ident]) => {
+            type $name<$Id: crate::typing::logic::BitSeq> = $val;
+        };
         (@sel $item:ident, $name:ident, $val:ty, [$($t:tt)*]) => {
             compile_error! {
                 concat!(
@@ -180,6 +216,7 @@ mod into_impls {
         IsTableMapMut<_K, _V>,
         IsCallableWith<_A, _R>,
         IsStruct<_Fs>,
+        IsNominalId<_Id>,
     ];
 
     macro_rules! impl_into {
@@ -444,6 +481,7 @@ mod into_impls {
         default!(general_defaults);
 
         type IsStruct<Fs> = And<IsIntoMulti<S::Fields, Fs>, IsIntoMulti<Fs, S::Fields>>;
+        type IsNominalId<Id> = Id::Eq<S::NominalId>;
         type IsTableMapConst<K, V> =
             And<IsInto<crate::lua::LuaString, K>, IsIntoMulti<S::Fields, mlua::Variadic<V>>>;
     });
@@ -497,7 +535,8 @@ mod from_impls {
         type IsFrom<Src: IntoLuaTyped> = Src::IsUnion<L, R>;
     }
     impl<S: crate::lua::LuaStructInner + crate::lua::PopLua> FromLuaTyped for crate::lua::LuaStruct<S> {
-        type IsFrom<Src: IntoLuaTyped> = Src::IsStruct<S::Fields>;
+        type IsFrom<Src: IntoLuaTyped> =
+            And<Src::IsStruct<S::Fields>, Src::IsNominalId<S::NominalId>>;
     }
 }
 

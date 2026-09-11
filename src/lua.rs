@@ -619,11 +619,8 @@ pub fn lua_conv_sub<U: FromLuaTyped>(lua: &Lua, val: impl LuaSub<U>) -> Result<U
 }
 
 pub trait LuaStructInner: Sized {
-    // FIXME: Add mandatory validation for field names, since we do not have nominals
-    #[expect(unused)]
-    const FIELD_NAMES: &[&[u8]];
-
     type Fields: FromLuaMultiTyped + IntoLuaMultiTyped;
+    type NominalId: crate::typing::logic::BitSeq;
 }
 pub struct LuaStruct<T: LuaStructInner>(pub T);
 

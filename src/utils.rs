@@ -63,6 +63,96 @@ pub mod __mac {
             b"match"
         ));
     };
+
+    #[cfg(feature = "strict-typeck")]
+    pub mod nominals {
+        use crate::typing::logic::*;
+
+        const fn hash_into(out: &mut u32, mut data: &[u8]) {
+            while let &[b, ref rest @ ..] = data {
+                data = rest;
+                *out ^= b as u32;
+                *out = out.wrapping_mul(0x01000193);
+            }
+        }
+        pub const fn hash_all(mut data: &[&[u8]]) -> IdTy {
+            let mut hash: u32 = 0x811c9dc5;
+
+            while let [next, rest @ ..] = data {
+                data = rest;
+                hash_into(&mut hash, next);
+            }
+
+            (hash >> 16) as u16 ^ hash as u16
+        }
+
+        pub type IdTy = u16;
+        pub const fn get_bit(hash: IdTy, i: u16) -> bool {
+            (hash >> i) & 1 != 0
+        }
+
+        pub trait GetBoolImpl<const B: bool> {
+            type Val: Bool;
+        }
+        impl GetBoolImpl<true> for () {
+            type Val = True;
+        }
+        impl GetBoolImpl<false> for () {
+            type Val = False;
+        }
+        pub type GetBool<const B: bool> = <() as GetBoolImpl<B>>::Val;
+
+        pub trait UniqueIdImpl<const ID: IdTy> {
+            type Id: BitSeq;
+        }
+        pub type UniqueId<const ID: IdTy> = <() as UniqueIdImpl<ID>>::Id;
+    }
+
+    #[cfg(feature = "strict-typeck")]
+    macro_rules! nominal_id {
+        ($name:ident) => {
+            crate::utils::__mac::nominals::UniqueId::<{
+                use crate::utils::__mac::nominals::*;
+
+                const ID: IdTy = hash_all(&[
+                    stringify!($name).as_bytes(),
+                    module_path!().as_bytes(),
+                    &u32::to_le_bytes(line!()),
+                    &u32::to_le_bytes(column!()),
+                ]);
+
+                #[allow(non_local_definitions)]
+                impl UniqueIdImpl<ID> for () {
+                    type Id = (((((((((((((((((),
+                        GetBool<{ get_bit(ID, 0) }>),
+                        GetBool<{ get_bit(ID, 1) }>),
+                        GetBool<{ get_bit(ID, 2) }>),
+                        GetBool<{ get_bit(ID, 3) }>),
+                        GetBool<{ get_bit(ID, 4) }>),
+                        GetBool<{ get_bit(ID, 5) }>),
+                        GetBool<{ get_bit(ID, 6) }>),
+                        GetBool<{ get_bit(ID, 7) }>),
+                        GetBool<{ get_bit(ID, 8) }>),
+                        GetBool<{ get_bit(ID, 9) }>),
+                        GetBool<{ get_bit(ID, 10) }>),
+                        GetBool<{ get_bit(ID, 11) }>),
+                        GetBool<{ get_bit(ID, 12) }>),
+                        GetBool<{ get_bit(ID, 13) }>),
+                        GetBool<{ get_bit(ID, 14) }>),
+                        GetBool<{ get_bit(ID, 15) }>);
+                }
+
+                ID
+            }>
+        };
+    }
+    #[cfg(not(feature = "strict-typeck"))]
+    macro_rules! nominal_id {
+        ($($t:tt)*) => {
+            ()
+        };
+    }
+    pub(crate) use nominal_id;
 }
 
 macro_rules! tbl {
@@ -217,10 +307,8 @@ macro_rules! builder_struct {
                 }
             }
             impl<$($field: crate::typing::LuaSub<$fty>),*> crate::lua::LuaStructInner for $gname<$($field),*> {
-                const FIELD_NAMES: &[&[u8]] = &[
-                    $(crate::utils::__mac::field_name!($field).as_bytes()),*
-                ];
                 type Fields = ($($fty,)*);
+                type NominalId = crate::utils::__mac::nominal_id!($gname);
             }
             impl<$($field: crate::typing::LuaSub<$fty>),*> $gname<$($field),*> {
                 pub fn _finish(self) -> crate::lua::LuaStruct::<Self> {
@@ -296,10 +384,8 @@ macro_rules! from_tbl_struct {
             }
         }
         impl crate::lua::LuaStructInner for $name {
-            const FIELD_NAMES: &[&[u8]] = &[
-                $(crate::utils::__mac::field_name!($field).as_bytes()),*
-            ];
             type Fields = ($($fieldty,)*);
+            type NominalId = crate::utils::__mac::nominal_id!($name);
         }
     };
 }
