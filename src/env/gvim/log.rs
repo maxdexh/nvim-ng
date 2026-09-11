@@ -8,9 +8,7 @@ crate::utils::from_tbl_proxy!({
         TRACE: LuaInt,
         #[expect(unused)]
         DEBUG: LuaInt,
-        #[expect(unused)]
         INFO: LuaInt,
-        #[expect(unused)]
         WARN: LuaInt,
         ERROR: LuaInt,
     }

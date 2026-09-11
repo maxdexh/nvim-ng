@@ -20,6 +20,7 @@ pub struct Nvim {
 
 pub enum NotifyLevel {
     Error,
+    #[expect(unused)]
     Warn,
     Info,
 }
