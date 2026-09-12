@@ -17,10 +17,14 @@ impl NvimConf<'_> {
         Ok(())
     }
     pub fn load_typst_lang(&self) {
-        self.add_packs(["https://github.com/chomosuke/typst-preview.nvim"]);
-
         self.set_formatter("typst", ["typstyle"]);
         self.formatter_use_nix("typstyle", "typstyle", "typstyle");
+
+        if self.is_vscode() {
+            return;
+        }
+
+        self.add_packs(["https://github.com/chomosuke/typst-preview.nvim"]);
 
         self.config_lsp(
             "tinymist",

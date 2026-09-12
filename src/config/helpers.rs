@@ -160,6 +160,17 @@ impl NvimConf<'_> {
     pub fn add_packs(&self, packs: impl LuaSub<LuaSeq<LuaUnion<LuaStruct<PackOpts>, LuaString>>>) {
         do_try(|| self.env().globals.vim()?.pack()?.add()?.call(packs)).ok_or_notify(self);
     }
+
+    pub fn is_vscode(&self) -> bool {
+        do_try(|| {
+            Ok(match self.env().globals.vim()?.g()?.get("vscode")? {
+                LuaVal::Nil | LuaVal::Boolean(false) => false,
+                _ => true,
+            })
+        })
+        .ok_or_notify(self)
+        .unwrap_or_default()
+    }
 }
 
 #[derive(Default)]

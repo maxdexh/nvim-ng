@@ -6,6 +6,10 @@ impl NvimConf<'_> {
             self.ft_set_indent(ft, 4);
         }
 
+        if self.is_vscode() {
+            return;
+        }
+
         self.config_lsp(
             "clangd",
             mk_builder!(VimLspConfig, {

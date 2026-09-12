@@ -2,6 +2,10 @@ use crate::{env::gvim::lsp::VimLspConfig, prelude::*};
 
 impl NvimConf<'_> {
     pub fn load_shell_langs(&self) {
+        if self.is_vscode() {
+            return;
+        }
+
         self.config_lsp(
             "bashls",
             mk_builder!(VimLspConfig, {

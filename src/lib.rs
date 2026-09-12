@@ -1,3 +1,5 @@
+#![allow(clippy::match_like_matches_macro)]
+
 mod entry_point;
 mod env;
 

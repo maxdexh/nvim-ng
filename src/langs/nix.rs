@@ -3,6 +3,12 @@ use crate::{env::gvim::lsp::VimLspConfig, prelude::*};
 impl NvimConf<'_> {
     pub fn load_nix_lang(&self) {
         self.ft_set_indent("nix", 2);
+        self.set_formatter("nix", ["alejandra"]);
+        self.formatter_use_nix("alejandra", "alejandra", "alejandra");
+
+        if self.is_vscode() {
+            return;
+        }
 
         let on_init = self.create_cb(|conf, client: LuaDictMut<LuaVal>| {
             let client = client.into_table_any();
@@ -134,8 +140,5 @@ impl NvimConf<'_> {
                 });
             }),
         );
-
-        self.set_formatter("nix", ["alejandra"]);
-        self.formatter_use_nix("alejandra", "alejandra", "alejandra");
     }
 }

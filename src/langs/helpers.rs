@@ -49,12 +49,21 @@ impl NvimConf<'_> {
     }
 
     pub fn config_lsp_noenable(&self, ls: &str, opts: impl LuaSub<LuaStruct<VimLspConfig>>) {
+        if self.is_vscode() {
+            return;
+        }
         do_try(|| self.env().globals.vim()?.lsp()?.config()?.call((ls, opts))).ok_or_notify(self);
     }
     pub fn enable_lsp(&self, ls: &str) {
+        if self.is_vscode() {
+            return;
+        }
         do_try(|| self.env().globals.vim()?.lsp()?.enable()?.call(ls)).ok_or_notify(self);
     }
     pub fn config_lsp(&self, ls: &str, opts: impl LuaSub<LuaStruct<VimLspConfig>>) {
+        if self.is_vscode() {
+            return;
+        }
         self.config_lsp_noenable(ls, opts);
         self.enable_lsp(ls);
     }

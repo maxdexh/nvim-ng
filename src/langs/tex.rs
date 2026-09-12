@@ -2,6 +2,12 @@ use crate::prelude::*;
 
 impl NvimConf<'_> {
     pub fn load_tex_lang(&self) {
+        self.set_formatter("tex", ["latexindent"]);
+
+        if self.is_vscode() {
+            return;
+        }
+
         self.add_packs(["https://github.com/lervag/vimtex"]);
 
         self.with_vim_g(|g| {
@@ -17,7 +23,5 @@ impl NvimConf<'_> {
             })
         })
         .ok_or_notify(self);
-
-        self.set_formatter("tex", ["latexindent"]);
     }
 }

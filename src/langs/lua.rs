@@ -7,6 +7,10 @@ impl NvimConf<'_> {
         self.set_formatter("lua", ["stylua"]);
         self.formatter_use_nix("stylua", "stylua", "stylua");
 
+        if self.is_vscode() {
+            return;
+        }
+
         self.config_lsp(
             "emmylua_ls",
             mk_builder!(VimLspConfig, {

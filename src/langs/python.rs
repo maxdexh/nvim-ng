@@ -2,6 +2,10 @@ use crate::{env::gvim::lsp::VimLspConfig, prelude::*};
 
 impl NvimConf<'_> {
     pub fn load_python_lang(&self) {
+        if self.is_vscode() {
+            return;
+        }
+
         self.config_lsp(
             "basedpyright",
             mk_builder!(VimLspConfig, {
