@@ -28,7 +28,9 @@ impl Nvim {
         conf.load_gitsigns();
         conf.load_grug_far();
 
-        conf.add_packs(["https://github.com/neovim/nvim-lspconfig"]);
+        if !conf.is_vscode() {
+            conf.add_packs(["https://github.com/neovim/nvim-lspconfig"]);
+        }
 
         conf.load_rust_lang();
         conf.load_nix_lang();

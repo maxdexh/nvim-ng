@@ -12,6 +12,9 @@ impl NvimConf<'_> {
         self.setup_plugin::<GrugFar>("grug-far", |gf| gf.setup()?.call(tbl!(owned, {})))
     }
     pub fn load_grug_far(&self) {
+        if self.is_vscode() {
+            return;
+        }
         self.add_packs(["https://github.com/MagicDuck/grug-far.nvim"]);
 
         self.set_keymap(

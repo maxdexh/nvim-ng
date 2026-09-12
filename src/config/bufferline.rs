@@ -2,15 +2,20 @@ use crate::{env::gvim::keymap::KeymapOpts, prelude::*};
 
 impl NvimConf<'_> {
     pub fn load_bufferline(&self) {
-        self.add_packs(["https://github.com/akinsho/bufferline.nvim"]);
-
-        self.on_very_lazy(|conf| conf.setup_plugin_now("bufferline", conf.bufferline_opts()))
-            .ok_or_notify(self);
+        if !self.is_vscode() {
+            self.add_packs(["https://github.com/akinsho/bufferline.nvim"]);
+            self.on_very_lazy(|conf| conf.setup_plugin_now("bufferline", conf.bufferline_opts()))
+                .ok_or_notify(self);
+        }
 
         self.set_keymap(
             "n",
             "L",
-            "<CMD>BufferLineCycleNext<CR>",
+            if self.is_vscode() {
+                "<CMD>call VSCodeNotify('workbench.action.nextEditor')<CR>"
+            } else {
+                "<CMD>BufferLineCycleNext<CR>"
+            },
             mk_builder!(KeymapOpts, {
                 desc = "Next Buffer";
             }),
@@ -19,7 +24,11 @@ impl NvimConf<'_> {
         self.set_keymap(
             "n",
             "H",
-            "<CMD>BufferLineCyclePrev<CR>",
+            if self.is_vscode() {
+                "<CMD>call VSCodeNotify('workbench.action.previousEditor')<CR>"
+            } else {
+                "<CMD>BufferLineCyclePrev<CR>"
+            },
             mk_builder!(KeymapOpts, {
                 desc = "Prev Buffer";
             }),
@@ -28,7 +37,11 @@ impl NvimConf<'_> {
         self.set_keymap(
             "n",
             "<leader>bd",
-            "<CMD>bd<CR>",
+            if self.is_vscode() {
+                "<CMD>call VSCodeNotify('workbench.action.closeActiveEditor')<CR>"
+            } else {
+                "<CMD>bd<CR>"
+            },
             mk_builder!(KeymapOpts, {
                 desc = "Close Buffer";
             }),
@@ -36,7 +49,11 @@ impl NvimConf<'_> {
         self.set_keymap(
             "n",
             "<leader>bl",
-            "<CMD>BufferLineCloseLeft<CR>",
+            if self.is_vscode() {
+                "<CMD>call VSCodeNotify('workbench.action.closeEditorsToTheLeft')<CR>"
+            } else {
+                "<CMD>BufferLineCloseLeft<CR>"
+            },
             mk_builder!(KeymapOpts, {
                 desc = "Close Buffers Left";
             }),
@@ -44,7 +61,11 @@ impl NvimConf<'_> {
         self.set_keymap(
             "n",
             "<leader>br",
-            "<CMD>BufferLineCloseRight<CR>",
+            if self.is_vscode() {
+                "<CMD>call VSCodeNotify('workbench.action.closeEditorsToTheRight')<CR>"
+            } else {
+                "<CMD>BufferLineCloseRight<CR>"
+            },
             mk_builder!(KeymapOpts, {
                 desc = "Close Buffers Right";
             }),

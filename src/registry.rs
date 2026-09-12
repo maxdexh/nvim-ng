@@ -64,10 +64,7 @@ impl Registry {
         self.try_get::<T>()
             .unwrap_or_else(|| panic!("missing registration for entry type {:?}", type_name::<T>()))
     }
-    pub fn get_or_insert<T: 'static + Send + Sync + Default>(
-        &self,
-        f: impl FnOnce() -> T,
-    ) -> Arc<T> {
+    pub fn get_or_insert<T: 'static + Send + Sync>(&self, f: impl FnOnce() -> T) -> Arc<T> {
         if let Some(entry) = self
             .inner
             .read()

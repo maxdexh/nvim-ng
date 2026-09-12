@@ -162,14 +162,27 @@ impl NvimConf<'_> {
     }
 
     pub fn is_vscode(&self) -> bool {
-        do_try(|| {
-            Ok(match self.env().globals.vim()?.g()?.get("vscode")? {
-                LuaVal::Nil | LuaVal::Boolean(false) => false,
-                _ => true,
+        struct IsVscode {
+            is_vscode: bool,
+        }
+        self.env()
+            .registry
+            .get_or_insert(|| IsVscode {
+                is_vscode: do_try(|| {
+                    Ok(match self.env().globals.vim()?.g()?.get("vscode")? {
+                        LuaVal::Nil | LuaVal::Boolean(false) => false,
+                        _ => true,
+                    })
+                })
+                .ok_or_notify(self)
+                .unwrap_or_default(),
             })
-        })
-        .ok_or_notify(self)
-        .unwrap_or_default()
+            .is_vscode
+    }
+    #[expect(dead_code)]
+    pub fn vscode_eval<T: PopLua>(&self, code: &str) -> Result<T> {
+        debug_assert!(self.is_vscode());
+        self.env().globals.vscode()?.eval()?.call_any_ret(code)
     }
 }
 

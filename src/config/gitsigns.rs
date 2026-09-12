@@ -31,6 +31,9 @@ impl NvimConf<'_> {
         self.setup_plugin::<GitSigns>("gitsigns", |gs| gs.setup()?.call(gitsigns_opts(self)))
     }
     pub fn load_gitsigns(&self) {
+        if self.is_vscode() {
+            return;
+        }
         self.add_packs(["https://github.com/lewis6991/gitsigns.nvim"]);
         self.on_very_lazy(|conf| {
             conf.req_gitsigns()?;

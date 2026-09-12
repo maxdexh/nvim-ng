@@ -23,6 +23,9 @@ impl NvimConf<'_> {
         })
     }
     pub fn load_treesitter(&self) {
+        if self.is_vscode() {
+            return;
+        }
         self.add_packs(["https://github.com/nvim-treesitter/nvim-treesitter"]);
 
         self.on_very_lazy(|conf| {

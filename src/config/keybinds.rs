@@ -213,19 +213,33 @@ impl NvimConf<'_> {
             }),
         );
 
-        self.set_keymap(
-            "n",
-            "gd",
-            self.create_cb(|env, ()| call_picker(env, "lsp_definitions", LuaNil)),
-            mk_builder!(KeymapOpts, {
-                desc = "Goto Definition";
-            }),
-        );
+        if !self.is_vscode() {
+            self.set_keymap(
+                "n",
+                "gd",
+                self.create_cb(|conf, ()| call_picker(conf, "lsp_definitions", LuaNil)),
+                mk_builder!(KeymapOpts, {
+                    desc = "Goto Definition";
+                }),
+            );
+        }
 
         self.set_keymap(
             "n",
             "gi",
-            self.create_cb(|env, ()| call_picker(env, "lsp_implementations", LuaNil)),
+            self.create_cb(|conf, ()| {
+                if conf.is_vscode() {
+                    conf.env()
+                        .globals
+                        .vim()?
+                        .lsp()?
+                        .buf()?
+                        .implementation()?
+                        .call(())
+                } else {
+                    call_picker(conf, "lsp_implementations", LuaNil)
+                }
+            }),
             mk_builder!(KeymapOpts, {
                 desc = "Goto Implementations";
             }),
@@ -249,14 +263,16 @@ impl NvimConf<'_> {
             }),
         );
 
-        self.set_keymap(
-            "t",
-            "<ESC><ESC>",
-            "<C-\\><C-n>",
-            mk_builder!(KeymapOpts, {
-                desc = "Exit Terminal mode";
-            }),
-        );
+        if !self.is_vscode() {
+            self.set_keymap(
+                "t",
+                "<ESC><ESC>",
+                "<C-\\><C-n>",
+                mk_builder!(KeymapOpts, {
+                    desc = "Exit Terminal mode";
+                }),
+            );
+        }
 
         macro_rules! resize {
             ($k:expr, $pref:expr, $v:expr, $desc:expr) => {

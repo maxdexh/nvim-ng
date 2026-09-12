@@ -2,6 +2,10 @@ use crate::{env::gvim::pack::PackOpts, prelude::*};
 
 impl NvimConf<'_> {
     pub fn load_completions(&self) {
+        if self.is_vscode() {
+            return;
+        }
+
         if let Some(version) = self.version_range("1.*").ok_or_notify(self) {
             self.add_packs([mk_builder!(PackOpts, {
                 src = "https://github.com/Saghen/blink.cmp";

@@ -16,6 +16,10 @@ impl NvimConf<'_> {
     }
 
     pub fn load_whichkey(&self) {
+        if self.is_vscode() {
+            return;
+        }
+
         self.add_packs(["https://github.com/folke/which-key.nvim"]);
         self.on_very_lazy(|conf| {
             conf.req_whichkey()?;

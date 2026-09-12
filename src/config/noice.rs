@@ -11,6 +11,10 @@ impl NvimConf<'_> {
     }
 
     pub fn load_noice(&self) {
+        if self.is_vscode() {
+            return;
+        }
+
         self.add_packs([
             "https://github.com/MunifTanjim/nui.nvim",
             "https://github.com/folke/noice.nvim",

@@ -3,10 +3,12 @@ mod plugin;
 use crate::{lua::AsLua, prelude::*};
 
 pub mod gvim;
+pub mod vscode;
 
 crate::utils::from_tbl_proxy!({
     struct Globals {
         vim: gvim::Vim,
+        vscode: vscode::Vscode,
         require: LuaCallable<LuaString, LuaVal>,
     }
 });

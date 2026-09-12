@@ -5,6 +5,29 @@ use crate::{
 
 impl NvimConf<'_> {
     pub fn load_colorscheme(&self) {
+        // NOTE: Not only are colorschemes not supported, but this actually breaks
+        // the vscode nvim plugin entirely, as the colorscheme has a 'vscode' module
+        if self.is_vscode() {
+            return;
+        }
+
+        self.add_packs(["https://github.com/HiPhish/rainbow-delimiters.nvim"]);
+        self.setup_plugin_now(
+            "rainbow-delimiters.setup",
+            tbl!(owned, {
+                highlight = [
+                    "RainbowDelimiterYellow",
+                    "RainbowDelimiterRed",
+                    "RainbowDelimiterBlue",
+                ];
+                query = tbl!(owned, {
+                    "" = "rainbow-delimiters";
+                    lua = "rainbow-blocks";
+                });
+            }),
+        )
+        .ok_or_notify(self);
+
         self.add_packs(["https://github.com/Mofiqul/vscode.nvim"]);
 
         self.add_autocmd(

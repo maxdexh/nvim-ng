@@ -13,6 +13,10 @@ impl NvimConf<'_> {
     }
 
     pub fn load_persistence(&self) {
+        if self.is_vscode() {
+            return;
+        }
+
         self.add_packs(["https://github.com/folke/persistence.nvim"]);
 
         self.req_persistence().ok_or_notify(self);

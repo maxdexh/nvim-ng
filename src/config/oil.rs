@@ -2,6 +2,9 @@ use crate::{env::gvim::keymap::KeymapOpts, prelude::*};
 
 impl NvimConf<'_> {
     pub fn load_oil(&self) {
+        if self.is_vscode() {
+            return;
+        }
         self.add_packs(["https://github.com/barrettruth/canola.nvim"]);
 
         self.setup_plugin_now("oil", self.oil_opts())
