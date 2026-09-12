@@ -17,145 +17,165 @@ fn get_root(conf: &NvimConf) -> Result<LuaString> {
 }
 impl NvimConf<'_> {
     pub fn load_keybinds(&self) {
-        self.set_keymap(
-            ["i", "n", "s"],
-            "<esc>",
-            self.create_func(|conf, ()| {
-                conf.env().globals.vim()?.cmd()?.call("noh")?;
-                Ok("<esc>")
-            }),
-            mk_builder!(KeymapOpts, {
-                desc = "Escape and clear hlsearch";
-                expr = true;
-            }),
-        );
+        // TODO: Make <C-q> work correctly on vsc
 
-        self.set_keymap(
-            "n",
-            "<leader>sx",
-            self.create_cb(|conf, ()| call_picker(conf, "resume", LuaNil)),
-            mk_builder!(KeymapOpts, {
-                desc = "Resume Picker";
-            }),
-        );
+        if !self.is_vscode() {
+            self.set_keymap(
+                ["i", "n", "s"],
+                "<esc>",
+                self.create_func(|conf, ()| {
+                    conf.env().globals.vim()?.cmd()?.call("noh")?;
+                    Ok("<esc>")
+                }),
+                mk_builder!(KeymapOpts, {
+                    desc = "Escape and clear hlsearch";
+                    expr = true;
+                }),
+            );
+        }
 
-        self.set_keymap(
-            "n",
-            "<leader>fP",
-            self.create_cb(|env, ()| call_picker(env, "pickers", LuaNil)),
-            mk_builder!(KeymapOpts, {
-                desc = "Find Picker";
-            }),
-        );
+        if !self.is_vscode() {
+            self.set_keymap(
+                "n",
+                "<leader>sx",
+                self.create_cb(|conf, ()| call_picker(conf, "resume", LuaNil)),
+                mk_builder!(KeymapOpts, {
+                    desc = "Resume Picker";
+                }),
+            );
+        }
+
+        if !self.is_vscode() {
+            self.set_keymap(
+                "n",
+                "<leader>fP",
+                self.create_cb(|env, ()| call_picker(env, "pickers", LuaNil)),
+                mk_builder!(KeymapOpts, {
+                    desc = "Find Picker";
+                }),
+            );
+        }
 
         self.set_keymap(
             "n",
             "<leader>ff",
-            self.create_cb(|conf, ()| {
-                call_picker(
-                    conf,
-                    "files",
-                    Some(tbl!(owned, {
-                        cwd = get_cwd(conf)?;
-                    })),
-                )
-            }),
+            if self.is_vscode() {
+                LuaUnion::Left("<CMD>call VSCodeNotify('workbench.action.quickOpen')<CR>")
+            } else {
+                LuaUnion::Right(self.create_cb(|conf, ()| {
+                    // calls Snacks.picker.files({ cwd = ... })
+                    call_picker(
+                        conf,
+                        "files",
+                        Some(tbl!(owned, {
+                            cwd = get_cwd(conf)?;
+                        })),
+                    )
+                }))
+            },
             mk_builder!(KeymapOpts, {
                 desc = "Find Files (cwd)";
             }),
         );
 
-        self.set_keymap(
-            "n",
-            "<leader>fF",
-            self.create_cb(|env, ()| {
-                call_picker(
-                    env,
-                    "files",
-                    Some(tbl!(owned, {
-                        cwd = get_root(env)?;
-                    })),
-                )
-            }),
-            mk_builder!(KeymapOpts, {
-                desc = "Find Files (Root Dir)";
-            }),
-        );
+        if !self.is_vscode() {
+            self.set_keymap(
+                "n",
+                "<leader>fF",
+                self.create_cb(|env, ()| {
+                    call_picker(
+                        env,
+                        "files",
+                        Some(tbl!(owned, {
+                            cwd = get_root(env)?;
+                        })),
+                    )
+                }),
+                mk_builder!(KeymapOpts, {
+                    desc = "Find Files (Root Dir)";
+                }),
+            );
+        }
 
         self.set_keymap(
             "n",
             "<leader>sg",
-            self.create_cb(|env, ()| {
-                call_picker(
-                    env,
-                    "grep",
-                    Some(tbl!(owned, {
-                        cwd = get_cwd(env)?;
-                    })),
-                )
-            }),
+            if self.is_vscode() {
+                LuaUnion::Left("<CMD>call VSCodeNotify('workbench.action.findInFiles')<CR>")
+            } else {
+                LuaUnion::Right(self.create_cb(|env, ()| {
+                    call_picker(
+                        env,
+                        "grep",
+                        Some(tbl!(owned, {
+                            cwd = get_cwd(env)?;
+                        })),
+                    )
+                }))
+            },
             mk_builder!(KeymapOpts, {
                 desc = "Grep (cwd)";
             }),
         );
 
-        self.set_keymap(
-            "n",
-            "<leader>sG",
-            self.create_cb(|env, ()| {
-                call_picker(
-                    env,
-                    "grep",
-                    Some(tbl!(owned, {
-                        cwd = get_root(env)?;
-                    })),
-                )
-            }),
-            mk_builder!(KeymapOpts, {
-                desc = "Grep (Root Dir)";
-            }),
-        );
+        if !self.is_vscode() {
+            self.set_keymap(
+                "n",
+                "<leader>sG",
+                self.create_cb(|env, ()| {
+                    call_picker(
+                        env,
+                        "grep",
+                        Some(tbl!(owned, {
+                            cwd = get_root(env)?;
+                        })),
+                    )
+                }),
+                mk_builder!(KeymapOpts, {
+                    desc = "Grep (Root Dir)";
+                }),
+            );
 
-        self.set_keymap(
-            "x",
-            "<leader>sg",
-            self.create_cb(|env, ()| {
-                call_picker(
-                    env,
-                    "grep_word",
-                    Some(tbl!(owned, {
-                        cwd = get_cwd(env)?;
-                    })),
-                )
-            }),
-            mk_builder!(KeymapOpts, {
-                desc = "Grep Selection (cwd)";
-            }),
-        );
+            self.set_keymap(
+                "x",
+                "<leader>sg",
+                self.create_cb(|env, ()| {
+                    call_picker(
+                        env,
+                        "grep_word",
+                        Some(tbl!(owned, {
+                            cwd = get_cwd(env)?;
+                        })),
+                    )
+                }),
+                mk_builder!(KeymapOpts, {
+                    desc = "Grep Selection (cwd)";
+                }),
+            );
 
-        self.set_keymap(
-            "x",
-            "<leader>sG",
-            self.create_cb(|env, ()| {
-                call_picker(
-                    env,
-                    "grep_word",
-                    Some(tbl!(owned, {
-                        cwd = get_root(env)?;
-                    })),
-                )
-            }),
-            mk_builder!(KeymapOpts, {
-                desc = "Grep Selection (Root Dir)";
-            }),
-        );
+            self.set_keymap(
+                "x",
+                "<leader>sG",
+                self.create_cb(|env, ()| {
+                    call_picker(
+                        env,
+                        "grep_word",
+                        Some(tbl!(owned, {
+                            cwd = get_root(env)?;
+                        })),
+                    )
+                }),
+                mk_builder!(KeymapOpts, {
+                    desc = "Grep Selection (Root Dir)";
+                }),
+            );
+        }
 
-        if let Some(lsp_buf) = do_try(|| self.env().globals.vim()?.lsp()?.buf()).ok_or_notify(self)
-        {
+        if let Some(lspb) = do_try(|| self.env().globals.vim()?.lsp()?.buf()).ok_or_notify(self) {
             self.set_keymap(
                 "n",
                 "<leader>ca",
-                lsp_buf.code_action(),
+                lspb.code_action(),
                 mk_builder!(KeymapOpts, {
                     desc = "Code Action";
                 }),
@@ -163,7 +183,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "n",
                 "<leader>cr",
-                lsp_buf.rename(),
+                lspb.rename(),
                 mk_builder!(KeymapOpts, {
                     desc = "Rename Symbol";
                 }),
@@ -171,7 +191,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "n",
                 "K",
-                lsp_buf.hover(),
+                lspb.hover(),
                 mk_builder!(KeymapOpts, {
                     desc = "Open Symbol Hover";
                 }),
@@ -179,7 +199,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "i",
                 "<C-h>",
-                lsp_buf.signature_help(),
+                lspb.signature_help(),
                 mk_builder!(KeymapOpts, {
                     desc = "Signature Help";
                 }),
@@ -196,22 +216,24 @@ impl NvimConf<'_> {
             }),
         );
 
-        self.set_keymap(
-            "n",
-            "<leader>xx",
-            self.create_cb(|env, ()| call_picker(env, "diagnostics", LuaNil)),
-            mk_builder!(KeymapOpts, {
-                desc = "Diagnostics";
-            }),
-        );
-        self.set_keymap(
-            "n",
-            "<leader>xX",
-            self.create_cb(|env, ()| call_picker(env, "diagnostics_buffer", LuaNil)),
-            mk_builder!(KeymapOpts, {
-                desc = "Diagnostics (Buffer)";
-            }),
-        );
+        if !self.is_vscode() {
+            self.set_keymap(
+                "n",
+                "<leader>xx",
+                self.create_cb(|env, ()| call_picker(env, "diagnostics", LuaNil)),
+                mk_builder!(KeymapOpts, {
+                    desc = "Diagnostics";
+                }),
+            );
+            self.set_keymap(
+                "n",
+                "<leader>xX",
+                self.create_cb(|env, ()| call_picker(env, "diagnostics_buffer", LuaNil)),
+                mk_builder!(KeymapOpts, {
+                    desc = "Diagnostics (Buffer)";
+                }),
+            );
+        }
 
         if !self.is_vscode() {
             self.set_keymap(
@@ -227,19 +249,11 @@ impl NvimConf<'_> {
         self.set_keymap(
             "n",
             "gi",
-            self.create_cb(|conf, ()| {
-                if conf.is_vscode() {
-                    conf.env()
-                        .globals
-                        .vim()?
-                        .lsp()?
-                        .buf()?
-                        .implementation()?
-                        .call(())
-                } else {
-                    call_picker(conf, "lsp_implementations", LuaNil)
-                }
-            }),
+            if self.is_vscode() {
+                do_try(|| self.env().globals.vim()?.lsp()?.buf()?.implementation())
+            } else {
+                self.create_cb(|conf, ()| call_picker(conf, "lsp_implementations", LuaNil))
+            },
             mk_builder!(KeymapOpts, {
                 desc = "Goto Implementations";
             }),
@@ -248,7 +262,11 @@ impl NvimConf<'_> {
         self.set_keymap(
             "n",
             "gr",
-            self.create_cb(|env, ()| call_picker(env, "lsp_references", LuaNil)),
+            if self.is_vscode() {
+                do_try(|| self.env().globals.vim()?.lsp()?.buf()?.references())
+            } else {
+                self.create_cb(|env, ()| call_picker(env, "lsp_references", LuaNil))
+            },
             mk_builder!(KeymapOpts, {
                 desc = "Goto References";
             }),
@@ -286,10 +304,12 @@ impl NvimConf<'_> {
                 )
             };
         }
-        resize!("Down", "", "-2", "Decrease window height");
-        resize!("Up", "", "+2", "Increase window height");
-        resize!("Left", "vertical ", "-2", "Decrease window width");
-        resize!("Right", "vertical ", "+2", "Increase window width");
+        if !self.is_vscode() {
+            resize!("Down", "", "-2", "Decrease window height");
+            resize!("Up", "", "+2", "Increase window height");
+            resize!("Left", "vertical ", "-2", "Decrease window width");
+            resize!("Right", "vertical ", "+2", "Increase window width");
+        }
 
         macro_rules! goto_window {
             ($k:expr, $desc:expr) => {
@@ -303,37 +323,47 @@ impl NvimConf<'_> {
                 )
             };
         }
-        goto_window!("j", "down");
-        goto_window!("k", "up");
-        goto_window!("h", "left");
-        goto_window!("l", "right");
+        // TODO: Reimplement similar in vscode?
+        if !self.is_vscode() {
+            goto_window!("j", "down");
+            goto_window!("k", "up");
+            goto_window!("h", "left");
+            goto_window!("l", "right");
+        }
 
         macro_rules! diag_jump_base {
             ($kb:expr, $count:expr, $sev:expr, $adj:expr) => {
                 self.set_keymap(
                     "n",
                     $kb,
-                    self.create_cb(|conf, ()| {
-                        conf.env()
-                            .globals
-                            .vim()?
-                            .diagnostic()?
-                            .jump()?
-                            .call(tbl!(owned, {
-                                count = $count;
-                                severity = $sev;
-                            }))
-                    }),
+                    if self.is_vscode() {
+                        self.create_cb(|_, ()| {
+                            // TODO: Jump to diag
+                            Ok(())
+                        })
+                    } else {
+                        self.create_cb(|conf, ()| {
+                            conf.env()
+                                .globals
+                                .vim()?
+                                .diagnostic()?
+                                .jump()?
+                                .call(tbl!(owned, {
+                                    count = $count;
+                                    severity = $sev;
+                                }))
+                        })
+                    },
                     mk_builder!(KeymapOpts, {
                         desc = concat!("Go to ", $adj, " ", $sev);
                     }),
-                )
+                );
             };
         }
         macro_rules! diag_jump {
             ($k:expr, $sev:expr) => {
                 diag_jump_base!(concat!("[", $k), -1, $sev, "previous");
-                diag_jump_base!(concat!("]", $k), 1, $sev, "previous");
+                diag_jump_base!(concat!("]", $k), 1, $sev, "next");
             };
         }
         diag_jump!("e", "error");

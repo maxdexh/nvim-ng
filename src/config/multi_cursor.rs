@@ -1,6 +1,7 @@
 use crate::{env::gvim::keymap::KeymapOpts, prelude::*};
 
 // FIXME: Replace this with 0.13 multicursor
+// TODO: Add vsc support
 
 type NvimKeymapSet = LuaCallable<
     (
@@ -42,6 +43,9 @@ impl NvimConf<'_> {
         })
     }
     pub fn load_multicursor(&self) {
+        if self.is_vscode() {
+            return;
+        }
         self.add_packs(["https://github.com/jake-stewart/multicursor.nvim"]);
 
         self.on_very_lazy(|conf| {

@@ -6,6 +6,7 @@ crate::utils::from_tbl_proxy!({
         rename: LuaCallable<(), ()>,
         hover: LuaCallable<(), ()>,
         signature_help: LuaCallable<(), ()>,
+        references: LuaCallable<(), ()>,
         implementation: LuaCallable<(), ()>,
     }
 });
