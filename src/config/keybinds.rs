@@ -173,7 +173,7 @@ impl NvimConf<'_> {
 
         if let Some(lspb) = do_try(|| self.env().globals.vim()?.lsp()?.buf()).ok_or_notify(self) {
             self.set_keymap(
-                "n",
+                ["n", "x"],
                 "<leader>ca",
                 lspb.code_action(),
                 mk_builder!(KeymapOpts, {
