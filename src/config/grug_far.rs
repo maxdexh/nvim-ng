@@ -24,7 +24,7 @@ impl NvimConf<'_> {
         self.set_keymap(
             ["n", "x"],
             "<leader>sr",
-            self.create_cb(|conf, ()| {
+            self.mk_callback(|conf, ()| {
                 // TODO: prefill selected text
                 conf.req_grug_far()?.open()?.call(tbl!(owned, {
                     transient = true;

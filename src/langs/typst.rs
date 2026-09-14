@@ -33,7 +33,7 @@ impl NvimConf<'_> {
             }),
         );
 
-        let lazy_load = self.create_sched_cb(|conf, ()| conf.setup_typst_preview());
+        let lazy_load = self.mk_sched_callback(|conf, ()| conf.setup_typst_preview());
 
         self.add_autocmd(
             "FileType",

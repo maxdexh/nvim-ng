@@ -24,7 +24,7 @@ impl NvimConf<'_> {
                 lsp_format = "fallback";
             })
             .eval(self)?;
-            self.create_func(move |conf, ()| {
+            self.mk_func(move |conf, ()| {
                 let enabled = !conf
                     .env()
                     .registry
@@ -34,7 +34,7 @@ impl NvimConf<'_> {
                 Ok(enabled.then(|| opts_tbl.clone()))
             })?
         };
-        let toggle_fmt_on_save = self.create_cb(|conf, ()| {
+        let toggle_fmt_on_save = self.mk_callback(|conf, ()| {
             let enabled = conf
                 .env()
                 .registry

@@ -52,7 +52,7 @@ impl NvimConf<'_> {
             .map(LuaCallable::cast_any_callable)
     }
     pub fn on_very_lazy(&self, f: impl FnOnce(&NvimConf) -> Result<()> + 'static) -> Result<()> {
-        let cb = self.create_cb_once(|conf, ()| f(conf))?;
+        let cb = self.mk_once_callback(|conf, ()| f(conf))?;
 
         let opts = mk_builder!(AutoCmdOpts, {
             callback = self.schedule_wrap(cb);
@@ -90,7 +90,7 @@ impl NvimConf<'_> {
         .ok_or_notify(self.env());
     }
 
-    pub fn create_cb<A: FromLuaMultiTyped>(
+    pub fn mk_callback<A: FromLuaMultiTyped>(
         &self,
         f: impl Fn(&NvimConf, A) -> Result<()> + 'static,
     ) -> Result<LuaCallable<A, ()>> {
@@ -105,7 +105,7 @@ impl NvimConf<'_> {
             },
         )
     }
-    pub fn create_func<A: FromLuaMultiTyped, R: IntoLuaMultiTyped>(
+    pub fn mk_func<A: FromLuaMultiTyped, R: IntoLuaMultiTyped>(
         &self,
         f: impl Fn(&NvimConf, A) -> Result<R> + 'static,
     ) -> Result<LuaCallable<A, R>> {
@@ -114,18 +114,18 @@ impl NvimConf<'_> {
             |_, err| Err(err.into()),
         )
     }
-    pub fn create_sched_cb<A: FromLuaMultiTyped>(
+    pub fn mk_sched_callback<A: FromLuaMultiTyped>(
         &self,
         f: impl Fn(&NvimConf, A) -> Result<()> + 'static,
     ) -> Result<LuaCallable<A, ()>> {
-        self.create_cb(f).and_then(|cb| self.schedule_wrap(cb))
+        self.mk_callback(f).and_then(|cb| self.schedule_wrap(cb))
     }
-    pub fn create_cb_once<A: FromLuaMultiTyped>(
+    pub fn mk_once_callback<A: FromLuaMultiTyped>(
         &self,
         f: impl FnOnce(&NvimConf, A) -> Result<()> + 'static,
     ) -> Result<LuaCallable<A, ()>> {
         let func = std::sync::Mutex::new(Some(f));
-        self.create_cb(move |env, args| {
+        self.mk_callback(move |env, args| {
             func.try_lock()
                 .map_or_else(
                     |err| match err {

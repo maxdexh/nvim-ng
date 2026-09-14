@@ -23,7 +23,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 ["i", "n", "s"],
                 "<esc>",
-                self.create_func(|conf, ()| {
+                self.mk_func(|conf, ()| {
                     conf.env().globals.vim()?.cmd()?.call("noh")?;
                     Ok("<esc>")
                 }),
@@ -38,7 +38,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "n",
                 "<leader>sx",
-                self.create_cb(|conf, ()| call_picker(conf, "resume", LuaNil)),
+                self.mk_callback(|conf, ()| call_picker(conf, "resume", LuaNil)),
                 mk_builder!(KeymapOpts, {
                     desc = "Resume Picker";
                 }),
@@ -49,7 +49,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "n",
                 "<leader>fP",
-                self.create_cb(|env, ()| call_picker(env, "pickers", LuaNil)),
+                self.mk_callback(|env, ()| call_picker(env, "pickers", LuaNil)),
                 mk_builder!(KeymapOpts, {
                     desc = "Find Picker";
                 }),
@@ -62,7 +62,7 @@ impl NvimConf<'_> {
             if self.is_vscode() {
                 LuaUnion::Left("<CMD>call VSCodeNotify('workbench.action.quickOpen')<CR>")
             } else {
-                LuaUnion::Right(self.create_cb(|conf, ()| {
+                LuaUnion::Right(self.mk_callback(|conf, ()| {
                     // calls Snacks.picker.files({ cwd = ... })
                     call_picker(
                         conf,
@@ -82,7 +82,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "n",
                 "<leader>fF",
-                self.create_cb(|env, ()| {
+                self.mk_callback(|env, ()| {
                     call_picker(
                         env,
                         "files",
@@ -103,7 +103,7 @@ impl NvimConf<'_> {
             if self.is_vscode() {
                 LuaUnion::Left("<CMD>call VSCodeNotify('workbench.action.findInFiles')<CR>")
             } else {
-                LuaUnion::Right(self.create_cb(|env, ()| {
+                LuaUnion::Right(self.mk_callback(|env, ()| {
                     call_picker(
                         env,
                         "grep",
@@ -122,7 +122,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "n",
                 "<leader>sG",
-                self.create_cb(|env, ()| {
+                self.mk_callback(|env, ()| {
                     call_picker(
                         env,
                         "grep",
@@ -139,7 +139,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "x",
                 "<leader>sg",
-                self.create_cb(|env, ()| {
+                self.mk_callback(|env, ()| {
                     call_picker(
                         env,
                         "grep_word",
@@ -156,7 +156,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "x",
                 "<leader>sG",
-                self.create_cb(|env, ()| {
+                self.mk_callback(|env, ()| {
                     call_picker(
                         env,
                         "grep_word",
@@ -220,7 +220,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "n",
                 "<leader>xx",
-                self.create_cb(|env, ()| call_picker(env, "diagnostics", LuaNil)),
+                self.mk_callback(|env, ()| call_picker(env, "diagnostics", LuaNil)),
                 mk_builder!(KeymapOpts, {
                     desc = "Diagnostics";
                 }),
@@ -228,7 +228,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "n",
                 "<leader>xX",
-                self.create_cb(|env, ()| call_picker(env, "diagnostics_buffer", LuaNil)),
+                self.mk_callback(|env, ()| call_picker(env, "diagnostics_buffer", LuaNil)),
                 mk_builder!(KeymapOpts, {
                     desc = "Diagnostics (Buffer)";
                 }),
@@ -239,7 +239,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "n",
                 "gd",
-                self.create_cb(|conf, ()| call_picker(conf, "lsp_definitions", LuaNil)),
+                self.mk_callback(|conf, ()| call_picker(conf, "lsp_definitions", LuaNil)),
                 mk_builder!(KeymapOpts, {
                     desc = "Goto Definition";
                 }),
@@ -252,7 +252,7 @@ impl NvimConf<'_> {
             if self.is_vscode() {
                 do_try(|| self.env().globals.vim()?.lsp()?.buf()?.implementation())
             } else {
-                self.create_cb(|conf, ()| call_picker(conf, "lsp_implementations", LuaNil))
+                self.mk_callback(|conf, ()| call_picker(conf, "lsp_implementations", LuaNil))
             },
             mk_builder!(KeymapOpts, {
                 desc = "Goto Implementations";
@@ -265,7 +265,7 @@ impl NvimConf<'_> {
             if self.is_vscode() {
                 do_try(|| self.env().globals.vim()?.lsp()?.buf()?.references())
             } else {
-                self.create_cb(|env, ()| call_picker(env, "lsp_references", LuaNil))
+                self.mk_callback(|env, ()| call_picker(env, "lsp_references", LuaNil))
             },
             mk_builder!(KeymapOpts, {
                 desc = "Goto References";
@@ -337,12 +337,12 @@ impl NvimConf<'_> {
                     "n",
                     $kb,
                     if self.is_vscode() {
-                        self.create_cb(|_, ()| {
+                        self.mk_callback(|_, ()| {
                             // TODO: Jump to diag
                             Ok(())
                         })
                     } else {
-                        self.create_cb(|conf, ()| {
+                        self.mk_callback(|conf, ()| {
                             conf.env()
                                 .globals
                                 .vim()?

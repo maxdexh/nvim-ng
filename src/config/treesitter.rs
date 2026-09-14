@@ -34,7 +34,7 @@ impl NvimConf<'_> {
         })
         .ok_or_notify(self);
 
-        let cb = self.create_cb(|conf, args: LuaStruct<AutoCmdArgs>| {
+        let cb = self.mk_callback(|conf, args: LuaStruct<AutoCmdArgs>| {
             let ft = args.r#match()?;
             let vts = conf.env().globals.vim()?.treesitter()?;
 

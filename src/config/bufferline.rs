@@ -50,7 +50,9 @@ impl NvimConf<'_> {
             if self.is_vscode() {
                 LuaUnion::Left("<CMD>call VSCodeNotify('workbench.action.closeActiveEditor')<CR>")
             } else {
-                LuaUnion::Right(self.create_cb(|conf, ()| conf.req_snacks()?.bufdelete()?.call(())))
+                LuaUnion::Right(self.mk_callback(|conf, ()| {
+                    conf.req_snacks()?.bufdelete()?.call(()) //
+                }))
             },
             mk_builder!(KeymapOpts, {
                 desc = "Close Buffer (keep window layout)";

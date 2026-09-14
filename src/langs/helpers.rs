@@ -13,7 +13,7 @@ impl NvimConf<'_> {
             "FileType",
             mk_builder!(AutoCmdOpts, {
                 pattern = Some(ft);
-                callback = self.create_cb(move |conf, ()| {
+                callback = self.mk_callback(move |conf, ()| {
                     conf.with_vim_opt_local(|opt_local| {
                         tbl!(out(opt_local), {
                             shiftwidth = 0;

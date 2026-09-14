@@ -36,7 +36,7 @@ impl NvimConf<'_> {
     fn req_mc(&self) -> Result<Multicursor> {
         self.setup_plugin::<Multicursor>("multicursor-nvim", |mc| {
             mc.setup()?.call(tbl!(owned, {}))?;
-            mc.addKeymapLayer()?.call(self.create_cb(|conf, setter| {
+            mc.addKeymapLayer()?.call(self.mk_callback(|conf, setter| {
                 set_mc_layer(conf, setter);
                 Ok(())
             }))
@@ -74,7 +74,7 @@ fn set_mc_layer(conf: &NvimConf, setter: NvimKeymapSet) {
         &setter,
         "n",
         "<ESC>",
-        conf.create_cb(|conf, ()| {
+        conf.mk_callback(|conf, ()| {
             let mc = conf.req_mc()?;
             if mc.cursorsEnabled()?.call(())? {
                 mc.clearCursors()?.call(())
@@ -130,7 +130,7 @@ fn set_mc_maps(conf: &NvimConf) {
         conf.set_keymap(
             modes,
             seq,
-            conf.create_cb(move |conf, ()| act(&conf.req_mc()?)),
+            conf.mk_callback(move |conf, ()| act(&conf.req_mc()?)),
             mk_builder!(KeymapOpts, {
                 desc = desc;
             }),

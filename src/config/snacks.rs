@@ -32,10 +32,10 @@ impl NvimConf<'_> {
 
     fn snacks_opts(&self) -> impl LuaSub<LuaDict<LuaVal>> {
         let find_file =
-            self.create_cb(|conf, ()| conf.req_snacks()?.dashboard()?.pick()?.call("files"));
+            self.mk_callback(|conf, ()| conf.req_snacks()?.dashboard()?.pick()?.call("files"));
         let find_text =
-            self.create_cb(|conf, ()| conf.req_snacks()?.dashboard()?.pick()?.call("live_grep"));
-        let load_session = self.create_cb(|conf, ()| conf.req_persistence()?.load()?.call(()));
+            self.mk_callback(|conf, ()| conf.req_snacks()?.dashboard()?.pick()?.call("live_grep"));
+        let load_session = self.mk_callback(|conf, ()| conf.req_persistence()?.load()?.call(()));
         tbl!(owned, {
             bigfile.enabled = true;
             indent.enabled = true;

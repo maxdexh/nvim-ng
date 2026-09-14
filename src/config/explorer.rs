@@ -15,7 +15,7 @@ impl NvimConf<'_> {
             if self.is_vscode() {
                 LuaUnion::Left("<CMD>call VSCodeNotify('workbench.view.explorer')<CR>")
             } else {
-                LuaUnion::Right(self.create_cb(|conf, ()| {
+                LuaUnion::Right(self.mk_callback(|conf, ()| {
                     conf.run_cmd("Oil --float");
                     Ok(())
                 }))
@@ -28,7 +28,7 @@ impl NvimConf<'_> {
             self.set_keymap(
                 "n",
                 "<leader>fE",
-                self.create_cb(|conf, ()| {
+                self.mk_callback(|conf, ()| {
                     conf.run_cmd("Oil");
                     Ok(())
                 }),

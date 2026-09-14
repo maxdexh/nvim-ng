@@ -33,7 +33,7 @@ impl NvimConf<'_> {
         self.add_autocmd(
             "ColorScheme",
             mk_builder!(AutoCmdOpts, {
-                callback = self.create_cb(|conf, ()| {
+                callback = self.mk_callback(|conf, ()| {
                     conf.set_overrides();
                     Ok(())
                 });

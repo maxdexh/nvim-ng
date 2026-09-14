@@ -10,7 +10,7 @@ impl NvimConf<'_> {
             return;
         }
 
-        let on_init = self.create_cb(|conf, client: LuaDictMut<LuaVal>| {
+        let on_init = self.mk_callback(|conf, client: LuaDictMut<LuaVal>| {
             let client = client.into_table_any();
 
             // disable all capabilities except the ones not provided by nixd
