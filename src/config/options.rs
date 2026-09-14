@@ -23,6 +23,10 @@ impl NvimConf<'_> {
                 // make search case insensitive unless you add \C or an uppercase letter
                 ignorecase = true;
                 smartcase = true;
+
+                // put splits on the correct sides (why is the default splitabove, wtf)
+                splitright = true;
+                splitbelow = true;
             })
         })
         .ok_or_notify(self);

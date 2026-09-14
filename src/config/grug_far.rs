@@ -9,7 +9,11 @@ crate::utils::from_tbl_proxy!({
 
 impl NvimConf<'_> {
     fn req_grug_far(&self) -> Result<GrugFar> {
-        self.setup_plugin::<GrugFar>("grug-far", |gf| gf.setup()?.call(tbl!(owned, {})))
+        self.setup_plugin::<GrugFar>("grug-far", |gf| {
+            gf.setup()?.call(tbl!(owned, {
+                //
+            }))
+        })
     }
     pub fn load_grug_far(&self) {
         if self.is_vscode() {
