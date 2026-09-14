@@ -16,6 +16,7 @@ from_tbl_proxy!({
         git: SnacksGit,
         dashboard: SnacksDash,
         picker: LuaDict<LuaCallable<Option<LuaDict<LuaVal>>, ()>>,
+        bufdelete: LuaCallable<(), ()>,
     }
 });
 impl NvimConf<'_> {

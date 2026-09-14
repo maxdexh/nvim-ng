@@ -34,18 +34,38 @@ impl NvimConf<'_> {
             }),
         );
 
+        if !self.is_vscode() {
+            self.set_keymap(
+                "n",
+                "<leader>bb",
+                "<CMD>e #<CR>",
+                mk_builder!(KeymapOpts, {
+                    desc = "Previous buffer (cd style)";
+                }),
+            );
+        }
         self.set_keymap(
             "n",
             "<leader>bd",
             if self.is_vscode() {
-                "<CMD>call VSCodeNotify('workbench.action.closeActiveEditor')<CR>"
+                LuaUnion::Left("<CMD>call VSCodeNotify('workbench.action.closeActiveEditor')<CR>")
             } else {
-                "<CMD>bd<CR>"
+                LuaUnion::Right(self.create_cb(|conf, ()| conf.req_snacks()?.bufdelete()?.call(())))
             },
             mk_builder!(KeymapOpts, {
-                desc = "Close Buffer";
+                desc = "Close Buffer (keep window layout)";
             }),
         );
+        if !self.is_vscode() {
+            self.set_keymap(
+                "n",
+                "<leader>bD",
+                "<CMD>bd<CR>",
+                mk_builder!(KeymapOpts, {
+                    desc = "Close Buffer";
+                }),
+            );
+        }
         self.set_keymap(
             "n",
             "<leader>bl",
